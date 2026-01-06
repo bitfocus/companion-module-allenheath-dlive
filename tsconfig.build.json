@@ -1,0 +1,13 @@
+{
+	"extends": "@companion-module/tools/tsconfig/node22/recommended",
+	"include": ["src/**/*.ts", "test/**/*.ts"],
+	"exclude": ["node_modules", "test", "**/*.spec.ts", "**/__tests__/**", "**/__mocks__/**"],
+	"compilerOptions": {
+		"outDir": "./dist",
+		"types": ["node", "jest"],
+		"baseUrl": "./",
+		"paths": {
+			"*": ["./node_modules/*"]
+		}
+	}
+}

@@ -1,0 +1,26 @@
+{
+	"id": "allenheath-dlive",
+	"name": "allenheath-dlive",
+	"shortname": "dLive",
+	"description": "Allen & Heath dLive module for Companion",
+	"version": "2.0.0",
+	"license": "MIT",
+	"repository": "https://github.com/shedworth/companion-module-allenheath-dlive.git",
+	"bugs": "https://github.com/shedworth/companion-module-allenheath-dlive/issues",
+	"maintainers": [
+		{
+			"name": "Tim Steer",
+			"email": "tim.steer@hotmail.co.uk"
+		}
+	],
+	"legacyIds": ["allenheath-dlive-ilive"],
+	"runtime": {
+		"type": "node22",
+		"api": "nodejs-ipc",
+		"apiVersion": "1.4.0",
+		"entrypoint": "../dist/main.js"
+	},
+	"manufacturer": "Allen & Heath",
+	"products": ["dLive"],
+	"keywords": ["Audio", "Sound"]
+}
