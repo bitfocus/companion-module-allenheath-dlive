@@ -1,6 +1,6 @@
 {
 	"name": "allenheath-dlive",
-	"version": "0.0.1",
+	"version": "1.0.0",
 	"main": "dist/main.js",
 	"scripts": {
 		"postinstall": "husky",
