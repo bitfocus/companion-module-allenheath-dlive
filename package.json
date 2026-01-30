@@ -35,7 +35,7 @@
 		"zod": "^4.2.1"
 	},
 	"devDependencies": {
-		"@companion-module/tools": "^2.3.0",
+		"@companion-module/tools": "^2.6.1",
 		"@types/jest": "^30.0.0",
 		"@types/lodash": "^4",
 		"@types/node": "^25.0.3",
