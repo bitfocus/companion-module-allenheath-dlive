@@ -9,13 +9,6 @@ describe('makeDropdownChoices', () => {
 		])
 	})
 
-	it('should start at startIndex', () => {
-		expect(makeDropdownChoices('Foo', 3, { startIndex: 1 })).toStrictEqual([
-			{ id: 1, label: 'Foo 2' },
-			{ id: 2, label: 'Foo 3' },
-		])
-	})
-
 	it('should offset the label by labelOffset', () => {
 		expect(makeDropdownChoices('Foo', 3, { labelOffset: 1 })).toStrictEqual([
 			{ id: 0, label: 'Foo 2' },

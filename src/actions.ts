@@ -393,10 +393,9 @@ export const UpdateActions = (companionModule: ModuleInstance): void => {
 					type: 'dropdown',
 					label: 'Scene',
 					id: 'scene',
-					default: 8,
-					choices: makeDropdownChoices('Scene', SCENE_COUNT, { startIndex: 8 }),
+					default: 0,
+					choices: makeDropdownChoices('Scene', SCENE_COUNT),
 					minChoicesForSearch: 0,
-					tooltip: 'Scenes 1-8 are reserved utility scenes and cannot be recalled',
 				},
 			],
 			callback: async (action) => {
