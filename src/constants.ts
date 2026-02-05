@@ -8,7 +8,7 @@ export const DEFAULT_MIDI_TCP_PORT = 51328
 export const MIN_TCP_PORT = 1
 export const MAX_TCP_PORT = 65535
 export const DEFAULT_MIDI_CHANNEL = 0
-export const DEFAULT_TARGET_IP = '192.168.1.70'
+export const DEFAULT_TARGET_IP = '192.168.1.71'
 
 // dLive constants
 export const INPUT_CHANNEL_COUNT = 128
