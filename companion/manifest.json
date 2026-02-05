@@ -3,7 +3,7 @@
 	"name": "allenheath-dlive",
 	"shortname": "dLive",
 	"description": "Allen & Heath dLive module for Companion",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"license": "MIT",
 	"repository": "https://github.com/bitfocus/companion-module-allenheath-dlive.git",
 	"bugs": "https://github.com/bitfocus/companion-module-allenheath-dlive/issues",
