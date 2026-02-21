@@ -2,6 +2,9 @@ import { InstanceBase, Regex, runEntrypoint, SomeCompanionConfigField, TCPHelper
 import { indexOf } from 'lodash/fp'
 
 import { UpdateActions } from './actions.js'
+import { FeedbackHandler } from './FeedbackHandler.js'
+import { UpdateFeedbacks } from './feedbacks.js'
+import { UpdatePresets } from './presets.js'
 import {
 	CUE_LISTS_PER_BANK,
 	DEFAULT_MIDI_CHANNEL,
@@ -28,6 +31,7 @@ import { parseDliveModuleConfig } from './validators/index.js'
 export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 	config?: DLiveModuleConfig
 	midiSocket?: TCPHelper
+	feedbackHandler?: FeedbackHandler
 
 	get baseMidiChannel(): number {
 		return this.config?.midiChannel ?? 0
@@ -44,7 +48,13 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 		} catch (error) {
 			this.log('error', `Unable to parse config object during init method: ${JSON.stringify(error)}`)
 		}
+
+		// Initialize feedback handler
+		this.feedbackHandler = new FeedbackHandler(this)
+
 		UpdateActions(this)
+		UpdateFeedbacks(this)
+		UpdatePresets(this)
 		this.initialiseMidi()
 	}
 
@@ -60,6 +70,9 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 
 	async destroy(): Promise<void> {
 		this.log('debug', `Destroying module`)
+
+		// Clear feedback subscriptions
+		this.feedbackHandler?.clear()
 
 		this.destroyMidiSocket()
 	}
@@ -89,6 +102,8 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 			})
 			.on('data', (data) => {
 				this.log('debug', `received MIDI data: ${data.toString('hex')}`)
+				// Process incoming MIDI data for feedback
+				this.feedbackHandler?.processMidiData(data)
 			})
 	}
 
@@ -107,6 +122,64 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 		} catch (error) {
 			this.log('error', `Error sending MIDI: ${JSON.stringify(error)}`)
 		}
+	}
+
+	/**
+	 * Requests the current mute status from the console via SysEx Get command
+	 * SysEx format: SysEx Header, 0N, 05, 09, CH, F7
+	 * @param channelType - The type of channel
+	 * @param channelNo - The channel number (0-based)
+	 */
+	requestMuteStatus(channelType: ChannelType, channelNo: number): void {
+		const { midiChannelOffset, midiNoteOffset } = getMidiOffsetsForChannelType(channelType)
+		this.sendMidiToDlive([
+			...SYSEX_HEADER,
+			this.baseMidiChannel + midiChannelOffset,
+			0x05,
+			0x09,
+			channelNo + midiNoteOffset,
+			0xf7,
+		])
+		this.log('debug', `Requested mute status for ${channelType}:${channelNo}`)
+	}
+
+	/**
+	 * Requests the current fader level from the console via SysEx Get command
+	 * SysEx format: SysEx Header, 0N, 05, 0B, 17, CH, F7
+	 * @param channelType - The type of channel
+	 * @param channelNo - The channel number (0-based)
+	 */
+	requestFaderLevel(channelType: ChannelType, channelNo: number): void {
+		const { midiChannelOffset, midiNoteOffset } = getMidiOffsetsForChannelType(channelType)
+		this.sendMidiToDlive([
+			...SYSEX_HEADER,
+			this.baseMidiChannel + midiChannelOffset,
+			0x05,
+			0x0b,
+			0x17,
+			channelNo + midiNoteOffset,
+			0xf7,
+		])
+		this.log('debug', `Requested fader level for ${channelType}:${channelNo}`)
+	}
+
+	/**
+	 * Requests the channel name from the console via SysEx Get command
+	 * SysEx format: SysEx Header, 0N, 01, CH, F7
+	 * Console responds with: SysEx Header, 0N, 02, CH, Name, F7 (Name = Hex ASCII String)
+	 * @param channelType - The type of channel
+	 * @param channelNo - The channel number (0-based)
+	 */
+	requestChannelName(channelType: ChannelType, channelNo: number): void {
+		const { midiChannelOffset, midiNoteOffset } = getMidiOffsetsForChannelType(channelType)
+		this.sendMidiToDlive([
+			...SYSEX_HEADER,
+			this.baseMidiChannel + midiChannelOffset,
+			0x01,
+			channelNo + midiNoteOffset,
+			0xf7,
+		])
+		this.log('debug', `Requested channel name for ${channelType}:${channelNo}`)
 	}
 
 	/**
@@ -136,6 +209,8 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 						channelNo + midiNoteOffset,
 						0x00,
 					])
+					// Update local cache immediately
+					this.feedbackHandler?.updateValue(`${channelType}:${channelNo}:mute`, true)
 					break
 				}
 
@@ -149,6 +224,8 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 						channelNo + midiNoteOffset,
 						0x00,
 					])
+					// Update local cache immediately
+					this.feedbackHandler?.updateValue(`${channelType}:${channelNo}:mute`, false)
 					break
 				}
 
@@ -164,6 +241,8 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 						0x06,
 						level,
 					])
+					// Update local cache immediately
+					this.feedbackHandler?.updateValue(`${channelType}:${channelNo}:fader`, level)
 					break
 				}
 
@@ -179,6 +258,8 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 						0x06,
 						0x7f,
 					])
+					// Update local cache immediately
+					this.feedbackHandler?.updateValue(`${channelType}:${channelNo}:main_assignment`, 0x7f)
 					break
 				}
 
@@ -194,6 +275,8 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 						0x06,
 						0x3f,
 					])
+					// Update local cache immediately
+					this.feedbackHandler?.updateValue(`${channelType}:${channelNo}:main_assignment`, 0x3f)
 					break
 				}
 
