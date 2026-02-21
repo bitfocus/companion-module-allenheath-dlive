@@ -185,14 +185,17 @@ describe('muteToggle action', () => {
 		// Should not send mute command
 		expect(processCommandSpy).not.toHaveBeenCalled()
 
-		// Should send 2 SysEx Get commands: 1 for channel name, 1 for mute status
-		expect(sendMidiToDliveSpy).toHaveBeenCalledTimes(2)
+		// Should send 3 SysEx Get commands:
+		// 1. Channel name (from subscribeToParameter)
+		// 2. Mute status (from subscribeToParameter)
+		// 3. Mute status again (from action callback when value not in cache)
+		expect(sendMidiToDliveSpy).toHaveBeenCalledTimes(3)
 
 		// First call should be Get Channel Name
 		const channelNameCall = sendMidiToDliveSpy.mock.calls[0][0]
 		expect(channelNameCall[9]).toBe(0x01) // Get channel name command
 
-		// Second call should be Get Mute Status
+		// Second call should be Get Mute Status (from subscription)
 		const muteStatusCall = sendMidiToDliveSpy.mock.calls[1][0]
 		// SysEx format: Header, 0N, 05, 09, CH, F7
 		expect(muteStatusCall[0]).toBe(0xf0) // SysEx start
@@ -201,5 +204,10 @@ describe('muteToggle action', () => {
 		expect(muteStatusCall[10]).toBe(0x09) // Mute parameter
 		expect(muteStatusCall[11]).toBe(channelNo) // Channel number
 		expect(muteStatusCall[12]).toBe(0xf7) // SysEx end
+
+		// Third call should also be Get Mute Status (from action callback)
+		const muteStatusCall2 = sendMidiToDliveSpy.mock.calls[2][0]
+		expect(muteStatusCall2[9]).toBe(0x05) // Get command
+		expect(muteStatusCall2[10]).toBe(0x09) // Mute parameter
 	})
 })

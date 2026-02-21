@@ -13,6 +13,8 @@ describe('FeedbackHandler', () => {
 			setVariableDefinitions: jest.fn(),
 			sendMidiToDlive: jest.fn(),
 			requestChannelName: jest.fn(),
+			requestMuteStatus: jest.fn(),
+			requestFaderLevel: jest.fn(),
 			baseMidiChannel: 0,
 		} as unknown as jest.Mocked<ModuleInstance>
 

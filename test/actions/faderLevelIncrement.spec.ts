@@ -216,14 +216,17 @@ describe('faderLevelIncrement action', () => {
 			{} as CompanionActionContext,
 		)
 
-		// Should send 2 SysEx Get commands: 1 for channel name, 1 for fader level
-		expect(sendMidiToDliveSpy).toHaveBeenCalledTimes(2)
+		// Should send 3 SysEx Get commands:
+		// 1. Channel name (from subscribeToParameter)
+		// 2. Fader level (from subscribeToParameter)
+		// 3. Fader level again (from action callback when value not in cache)
+		expect(sendMidiToDliveSpy).toHaveBeenCalledTimes(3)
 
 		// First call should be Get Channel Name
 		const channelNameCall = sendMidiToDliveSpy.mock.calls[0][0]
 		expect(channelNameCall[9]).toBe(0x01) // Get channel name command
 
-		// Second call should be Get Fader Level
+		// Second call should be Get Fader Level (from subscription)
 		const faderLevelCall = sendMidiToDliveSpy.mock.calls[1][0]
 		// SysEx format: Header, 0N, 05, 0B, 17, CH, F7
 		expect(faderLevelCall[0]).toBe(0xf0) // SysEx start
@@ -233,5 +236,10 @@ describe('faderLevelIncrement action', () => {
 		expect(faderLevelCall[11]).toBe(0x17) // Fader sub-parameter
 		expect(faderLevelCall[12]).toBe(channelNo) // Channel number
 		expect(faderLevelCall[13]).toBe(0xf7) // SysEx end
+
+		// Third call should also be Get Fader Level (from action callback)
+		const faderLevelCall2 = sendMidiToDliveSpy.mock.calls[2][0]
+		expect(faderLevelCall2[9]).toBe(0x05) // Get command
+		expect(faderLevelCall2[10]).toBe(0x0b) // Fader parameter
 	})
 })

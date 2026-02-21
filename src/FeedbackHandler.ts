@@ -688,6 +688,7 @@ export class FeedbackHandler {
 		const channelType = parts[0] as ChannelType
 		const channelNoStr = parts[1]
 		const channelNo = parseInt(channelNoStr, 10)
+		const parameter = parts[2]
 
 		if (isNaN(channelNo)) {
 			this.module.log('warn', `Invalid channel number in path: ${path}`)
@@ -697,7 +698,56 @@ export class FeedbackHandler {
 		// Request channel name if we haven't already
 		this.ensureChannelNameSubscription(channelType, channelNo)
 
+		// Request the current value from the console
+		this.requestParameterValue(channelType, channelNo, parameter)
+
 		this.module.log('debug', `Subscribed to parameter: ${path}`)
+	}
+
+	/**
+	 * Requests a parameter value from the console
+	 * @param channelType Channel type
+	 * @param channelNo Channel number (0-based)
+	 * @param parameter Parameter name (mute, fader, main_assignment)
+	 */
+	private requestParameterValue(channelType: ChannelType, channelNo: number, parameter: string): void {
+		switch (parameter) {
+			case 'mute':
+				this.module.requestMuteStatus(channelType, channelNo)
+				break
+			case 'fader':
+				this.module.requestFaderLevel(channelType, channelNo)
+				break
+			// main_assignment doesn't have a specific get command in dLive MIDI spec
+			// It will be updated when the value changes
+			default:
+				this.module.log('debug', `No get command available for parameter: ${parameter}`)
+		}
+	}
+
+	/**
+	 * Requests current values for all subscribed parameters from the console
+	 * Call this when the connection is established to sync state
+	 */
+	requestAllSubscribedValues(): void {
+		this.module.log('info', 'Requesting current values for all subscribed parameters')
+
+		for (const path in this.subscriptions) {
+			const parts = path.split(':')
+			if (parts.length !== 3) continue
+
+			const channelType = parts[0] as ChannelType
+			const channelNo = parseInt(parts[1], 10)
+			const parameter = parts[2]
+
+			if (isNaN(channelNo)) continue
+
+			// Request the parameter value
+			this.requestParameterValue(channelType, channelNo, parameter)
+
+			// Also request channel name
+			this.module.requestChannelName(channelType, channelNo)
+		}
 	}
 
 	/**

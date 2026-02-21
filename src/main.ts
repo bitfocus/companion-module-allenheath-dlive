@@ -99,6 +99,8 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 			})
 			.on('connect', () => {
 				this.log('debug', `MIDI Connected to ${host}`)
+				// Request current values for all subscribed parameters
+				this.feedbackHandler?.requestAllSubscribedValues()
 			})
 			.on('data', (data) => {
 				this.log('debug', `received MIDI data: ${data.toString('hex')}`)
