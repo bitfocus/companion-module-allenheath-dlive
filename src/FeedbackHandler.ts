@@ -776,13 +776,54 @@ export class FeedbackHandler {
 		// Mark as subscribed
 		this.channelNameSubscriptions.add(channelKey)
 
+		// Set a default placeholder name until the console responds
+		const defaultName = this.getDefaultChannelName(channelType, channelNo)
+		this.updateChannelName(channelType, channelNo, defaultName)
+
 		// Request channel name from console
 		this.module.requestChannelName(channelType, channelNo)
 
-		// Note: Don't call updateChannelNameVariables() here - it will be called
-		// when the parameter subscription is created in subscribeToParameter()
-
 		this.module.log('debug', `Requested channel name for ${channelKey}`)
+	}
+
+	/**
+	 * Gets a default channel name for display before the console responds
+	 * @param channelType Channel type
+	 * @param channelNo Channel number (0-based)
+	 * @returns Default channel name
+	 */
+	private getDefaultChannelName(channelType: ChannelType, channelNo: number): string {
+		const channelNum = channelNo + 1 // Convert to 1-based for display
+		switch (channelType) {
+			case 'input':
+				return `IP ${channelNum}`
+			case 'mono_group':
+				return `Grp ${channelNum}`
+			case 'stereo_group':
+				return `StGrp ${channelNum}`
+			case 'mono_aux':
+				return `Aux ${channelNum}`
+			case 'stereo_aux':
+				return `StAux ${channelNum}`
+			case 'mono_matrix':
+				return `Mtx ${channelNum}`
+			case 'stereo_matrix':
+				return `StMtx ${channelNum}`
+			case 'mono_fx_send':
+				return `FX ${channelNum}`
+			case 'stereo_fx_send':
+				return `StFX ${channelNum}`
+			case 'fx_return':
+				return `FXRtn ${channelNum}`
+			case 'main':
+				return `Main ${channelNum}`
+			case 'dca':
+				return `DCA ${channelNum}`
+			case 'mute_group':
+				return `MG ${channelNum}`
+			default:
+				return `Ch ${channelNum}`
+		}
 	}
 
 	/**
@@ -795,11 +836,14 @@ export class FeedbackHandler {
 		// Use 1-based channel numbering for variable name
 		const variableId = `dlive_${channelType}_${channelNo + 1}_name`
 
+		// If the name is empty, use the default name
+		const displayName = name.trim() || this.getDefaultChannelName(channelType, channelNo)
+
 		this.module.setVariableValues({
-			[variableId]: name
+			[variableId]: displayName
 		})
 
-		this.module.log('debug', `Updated channel name for ${channelType}:${channelNo} to "${name}"`)
+		this.module.log('debug', `Updated channel name for ${channelType}:${channelNo} to "${displayName}"`)
 	}
 
 	/**

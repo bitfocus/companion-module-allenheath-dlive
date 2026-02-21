@@ -159,6 +159,9 @@ describe('FeedbackHandler', () => {
 		})
 
 		it('should ignore messages for unsubscribed parameters', () => {
+			// Clear mocks from beforeEach setup (which sets default channel name)
+			jest.clearAllMocks()
+
 			// Process message for input channel 1 (we're only subscribed to channel 0)
 			const midiData = Buffer.from([0x90, 0x01, 0x7f])
 			feedbackHandler.processMidiData(midiData)
