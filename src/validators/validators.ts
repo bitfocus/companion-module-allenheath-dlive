@@ -177,10 +177,30 @@ const MuteActionSchema = CompanionActionEventBaseSchema.extend({
 	}),
 })
 
+const MuteToggleActionSchema = CompanionActionEventBaseSchema.extend({
+	options: z.object({
+		...channelOptions,
+	}),
+})
+
 const FaderLevelActionSchema = CompanionActionEventBaseSchema.extend({
 	options: z.object({
 		...channelOptions,
 		level: z.number().int().min(0).max(127),
+	}),
+})
+
+const FaderLevelIncrementActionSchema = CompanionActionEventBaseSchema.extend({
+	options: z.object({
+		...channelOptions,
+		increment: z.number().min(0.5).max(3.0),
+	}),
+})
+
+const FaderLevelDecrementActionSchema = CompanionActionEventBaseSchema.extend({
+	options: z.object({
+		...channelOptions,
+		decrement: z.number().min(0.5).max(3.0),
 	}),
 })
 
@@ -383,7 +403,13 @@ const DliveModuleConfigSchema = z.object({
 
 export type MuteAction = z.infer<typeof MuteActionSchema>
 
+export type MuteToggleAction = z.infer<typeof MuteToggleActionSchema>
+
 export type FaderLevelAction = z.infer<typeof FaderLevelActionSchema>
+
+export type FaderLevelIncrementAction = z.infer<typeof FaderLevelIncrementActionSchema>
+
+export type FaderLevelDecrementAction = z.infer<typeof FaderLevelDecrementActionSchema>
 
 export type AssignChannelToMainMixAction = z.infer<typeof AssignChannelToMainMixActionSchema>
 
@@ -425,8 +451,17 @@ export type SetUfxUnitParameterAction = z.infer<typeof SetUfxUnitParameterAction
 
 export const parseMuteAction = (action: CompanionActionEvent): MuteAction => MuteActionSchema.parse(action)
 
+export const parseMuteToggleAction = (action: CompanionActionEvent): MuteToggleAction =>
+	MuteToggleActionSchema.parse(action)
+
 export const parseFaderLevelAction = (action: CompanionActionEvent): FaderLevelAction =>
 	FaderLevelActionSchema.parse(action)
+
+export const parseFaderLevelIncrementAction = (action: CompanionActionEvent): FaderLevelIncrementAction =>
+	FaderLevelIncrementActionSchema.parse(action)
+
+export const parseFaderLevelDecrementAction = (action: CompanionActionEvent): FaderLevelDecrementAction =>
+	FaderLevelDecrementActionSchema.parse(action)
 
 export const parseAssignChannelToMainMixAction = (action: CompanionActionEvent): AssignChannelToMainMixAction =>
 	AssignChannelToMainMixActionSchema.parse(action)
