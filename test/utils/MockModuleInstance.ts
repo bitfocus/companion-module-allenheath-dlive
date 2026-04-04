@@ -1,4 +1,4 @@
-import { CompanionActionDefinitions, TCPHelper } from '@companion-module/base'
+import { CompanionActionDefinitions, CompanionVariableDefinition, CompanionVariableValues, TCPHelper } from '@companion-module/base'
 
 import { ModuleInstance } from '../../src/main.js'
 
@@ -12,6 +12,18 @@ export class MockModuleInstance extends ModuleInstance {
 
 	setActionDefinitions(actionDefinitions: CompanionActionDefinitions): void {
 		this.actionDefinitions = actionDefinitions
+	}
+
+	setVariableDefinitions(_variableDefinitions: CompanionVariableDefinition[]): void {
+		return
+	}
+
+	setVariableValues(_variableValues: CompanionVariableValues): void {
+		return
+	}
+
+	checkFeedbacksById(_feedbackId: string): void {
+		return
 	}
 
 	sendMidiToDlive(_midiData: number[]): void {
