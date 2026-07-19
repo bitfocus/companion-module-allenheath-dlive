@@ -136,6 +136,8 @@ export const UpdateActions = (companionModule: ModuleInstance): void => {
 					id: 'increment',
 					default: 1.0,
 					choices: [
+						{ id: 0.1, label: '0.1 dB' },
+						{ id: 0.2, label: '0.2 dB' },
 						{ id: 0.5, label: '0.5 dB' },
 						{ id: 1.0, label: '1.0 dB' },
 						{ id: 1.5, label: '1.5 dB' },
@@ -176,7 +178,12 @@ export const UpdateActions = (companionModule: ModuleInstance): void => {
 					currentDb = -54
 				}
 				const newDb = currentDb + options.increment
-				const newMidiValue = dbToFaderMidiValue(newDb)
+				let newMidiValue = dbToFaderMidiValue(newDb)
+				// The fader has ~0.5 dB resolution over MIDI (64/127 dB per step), so increments
+				// smaller than one step would round back to the same value - always move at least one step
+				if (newMidiValue <= currentValue) {
+					newMidiValue = Math.min(127, currentValue + 1)
+				}
 
 				companionModule.processCommand({
 					command: 'fader_level',
@@ -200,6 +207,8 @@ export const UpdateActions = (companionModule: ModuleInstance): void => {
 					id: 'decrement',
 					default: 1.0,
 					choices: [
+						{ id: 0.1, label: '0.1 dB' },
+						{ id: 0.2, label: '0.2 dB' },
 						{ id: 0.5, label: '0.5 dB' },
 						{ id: 1.0, label: '1.0 dB' },
 						{ id: 1.5, label: '1.5 dB' },
@@ -236,7 +245,12 @@ export const UpdateActions = (companionModule: ModuleInstance): void => {
 				// Convert current MIDI value to dB, subtract decrement, convert back to MIDI
 				const currentDb = faderMidiValueToDb(currentValue)
 				const newDb = currentDb - options.decrement
-				const newMidiValue = dbToFaderMidiValue(newDb)
+				let newMidiValue = dbToFaderMidiValue(newDb)
+				// The fader has ~0.5 dB resolution over MIDI (64/127 dB per step), so decrements
+				// smaller than one step would round back to the same value - always move at least one step
+				if (newMidiValue >= currentValue) {
+					newMidiValue = Math.max(0, currentValue - 1)
+				}
 
 				companionModule.processCommand({
 					command: 'fader_level',

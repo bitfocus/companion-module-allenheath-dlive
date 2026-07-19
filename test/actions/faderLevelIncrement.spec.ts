@@ -93,6 +93,38 @@ describe('faderLevelIncrement action', () => {
 		expect(calledWithArgs[6]).toBeLessThanOrEqual(92) // Should be around 91
 	})
 
+	it('should always move at least one MIDI step for a 0.1 dB increment', () => {
+		// A 0.1 dB increment is below the fader's MIDI resolution (~0.5 dB per step),
+		// so the computed value would round back to the current value and the fader would never move
+		const channelType: ChannelType = 'input'
+		const channelNo = 0
+		const path = 'input:0:fader'
+
+		feedbackHandler.mapFeedback('test_feedback', path)
+		feedbackHandler['valueCache'][path] = 100
+
+		jest.clearAllMocks()
+
+		const faderLevelIncrementAction: FaderLevelIncrementAction = {
+			...baseAction,
+			options: {
+				...baseAction.options,
+				channelType,
+				increment: 0.1,
+				[camelCase(channelType)]: channelNo,
+			},
+		}
+
+		void moduleInstance.actionDefinitions.faderLevelIncrement?.callback?.(
+			faderLevelIncrementAction as CompanionActionEvent,
+			{} as CompanionActionContext,
+		)
+
+		expect(sendMidiToDliveSpy).toHaveBeenCalledTimes(1)
+		const calledWithArgs = sendMidiToDliveSpy.mock.calls[0][0]
+		expect(calledWithArgs[6]).toBe(101)
+	})
+
 	it('should increment fader level by 2.5 dB from 0 dB', () => {
 		// Setup: Current fader at 0 dB (MIDI value 107)
 		const channelType: ChannelType = 'input'

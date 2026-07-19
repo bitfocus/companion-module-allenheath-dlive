@@ -93,6 +93,38 @@ describe('faderLevelDecrement action', () => {
 		expect(calledWithArgs[6]).toBeGreaterThanOrEqual(86) // Should be around 87
 	})
 
+	it('should always move at least one MIDI step for a 0.1 dB decrement', () => {
+		// A 0.1 dB decrement is below the fader's MIDI resolution (~0.5 dB per step),
+		// so the computed value would round back to the current value and the fader would never move
+		const channelType: ChannelType = 'input'
+		const channelNo = 0
+		const path = 'input:0:fader'
+
+		feedbackHandler.mapFeedback('test_feedback', path)
+		feedbackHandler['valueCache'][path] = 100
+
+		jest.clearAllMocks()
+
+		const faderLevelDecrementAction: FaderLevelDecrementAction = {
+			...baseAction,
+			options: {
+				...baseAction.options,
+				channelType,
+				decrement: 0.1,
+				[camelCase(channelType)]: channelNo,
+			},
+		}
+
+		void moduleInstance.actionDefinitions.faderLevelDecrement?.callback?.(
+			faderLevelDecrementAction as CompanionActionEvent,
+			{} as CompanionActionContext,
+		)
+
+		expect(sendMidiToDliveSpy).toHaveBeenCalledTimes(1)
+		const calledWithArgs = sendMidiToDliveSpy.mock.calls[0][0]
+		expect(calledWithArgs[6]).toBe(99)
+	})
+
 	it('should decrement fader level by 2.5 dB from 0 dB', () => {
 		// Setup: Current fader at 0 dB (MIDI value 107)
 		const channelType: ChannelType = 'input'

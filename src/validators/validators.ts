@@ -193,14 +193,14 @@ const FaderLevelActionSchema = CompanionActionEventBaseSchema.extend({
 const FaderLevelIncrementActionSchema = CompanionActionEventBaseSchema.extend({
 	options: z.object({
 		...channelOptions,
-		increment: z.number().min(0.5).max(3.0),
+		increment: z.number().min(0.1).max(3.0),
 	}),
 })
 
 const FaderLevelDecrementActionSchema = CompanionActionEventBaseSchema.extend({
 	options: z.object({
 		...channelOptions,
-		decrement: z.number().min(0.5).max(3.0),
+		decrement: z.number().min(0.1).max(3.0),
 	}),
 })
 
