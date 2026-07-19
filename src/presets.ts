@@ -13,6 +13,8 @@ import {
 	STEREO_FX_SEND_COUNT,
 	STEREO_GROUP_COUNT,
 	STEREO_MATRIX_COUNT,
+	STEREO_UFX_RETURN_COUNT,
+	STEREO_UFX_SEND_COUNT,
 } from './constants.js'
 import type { ModuleInstance } from './main.js'
 
@@ -175,6 +177,26 @@ const CHANNEL_TYPES: ChannelTypeConfig[] = [
 		channelCount: DCA_COUNT,
 		bgcolor: CHANNEL_COLOURS.red,
 		color: WHITE_TEXT,
+	},
+	{
+		channelType: 'stereo_ufx_send',
+		optionKey: 'stereoUfxSend',
+		displayName: 'Stereo UFX Send',
+		variablePrefix: 'stereo_ufx_send',
+		category: 'UFX',
+		channelCount: STEREO_UFX_SEND_COUNT,
+		bgcolor: CHANNEL_COLOURS.white,
+		color: BLACK_TEXT,
+	},
+	{
+		channelType: 'stereo_ufx_return',
+		optionKey: 'stereoUfxReturn',
+		displayName: 'Stereo UFX Return',
+		variablePrefix: 'stereo_ufx_return',
+		category: 'UFX',
+		channelCount: STEREO_UFX_RETURN_COUNT,
+		bgcolor: CHANNEL_COLOURS.white,
+		color: BLACK_TEXT,
 	},
 ]
 

@@ -14,6 +14,8 @@ import {
 	STEREO_FX_SEND_COUNT,
 	STEREO_GROUP_COUNT,
 	STEREO_MATRIX_COUNT,
+	STEREO_UFX_RETURN_COUNT,
+	STEREO_UFX_SEND_COUNT,
 } from '../src/constants.js'
 import { ModuleInstance } from '../src/main.js'
 import { UpdatePresets } from '../src/presets.js'
@@ -49,7 +51,9 @@ describe('presets', () => {
 		STEREO_FX_SEND_COUNT +
 		FX_RETURN_COUNT +
 		MAIN_COUNT +
-		DCA_COUNT
+		DCA_COUNT +
+		STEREO_UFX_SEND_COUNT +
+		STEREO_UFX_RETURN_COUNT
 
 	it('creates a rotary knob preset for every channel of every channel type', () => {
 		const rotaryPresetIds = Object.keys(moduleInstance.presetDefinitions).filter((id) => id.startsWith('rotary_knob_'))
@@ -78,8 +82,28 @@ describe('presets', () => {
 		expect(moduleInstance.presetDefinitions[`rotary_knob_dca_${DCA_COUNT + 1}`]).toBeUndefined()
 	})
 
+	it('creates rotary knob presets for the stereo UFX sends and returns', () => {
+		const sendPreset = moduleInstance.presetDefinitions.rotary_knob_stereo_ufx_send_8 as CompanionButtonPresetDefinition
+		expect(sendPreset).toBeDefined()
+		expect(sendPreset.name).toBe('Stereo UFX Send 8 Rotary Knob')
+		expect(sendPreset.steps[0].down[0].options).toMatchObject({ channelType: 'stereo_ufx_send', stereoUfxSend: 7 })
+		expect(sendPreset.style.text).toContain('dlive_stereo_ufx_send_8_name')
+
+		const returnPreset = moduleInstance.presetDefinitions
+			.rotary_knob_stereo_ufx_return_1 as CompanionButtonPresetDefinition
+		expect(returnPreset).toBeDefined()
+		expect(returnPreset.steps[0].down[0].options).toMatchObject({
+			channelType: 'stereo_ufx_return',
+			stereoUfxReturn: 0,
+		})
+		expect(moduleInstance.presetDefinitions[`rotary_knob_stereo_ufx_send_${STEREO_UFX_SEND_COUNT + 1}`]).toBeUndefined()
+		expect(
+			moduleInstance.presetDefinitions[`rotary_knob_stereo_ufx_return_${STEREO_UFX_RETURN_COUNT + 1}`],
+		).toBeUndefined()
+	})
+
 	it('creates one mute button preset per channel type', () => {
 		const mutePresetIds = Object.keys(moduleInstance.presetDefinitions).filter((id) => id.startsWith('mute_button_'))
-		expect(mutePresetIds).toHaveLength(12)
+		expect(mutePresetIds).toHaveLength(14)
 	})
 })
