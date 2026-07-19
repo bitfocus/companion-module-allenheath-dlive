@@ -23,7 +23,8 @@ interface ChannelTypeConfig {
  * 4 Blue = Groups, 5 Purple = Matrices, 6 Lt Blue = Auxes, 7 White = FX)
  */
 const CHANNEL_COLOURS = {
-	red: 0xd00000,
+	// Knocked back to 50% so the bright red mute feedback remains visible on DCAs
+	red: 0x680000,
 	green: 0x00c000,
 	yellow: 0xffff00,
 	blue: 0x0000d0,

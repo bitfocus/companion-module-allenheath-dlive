@@ -128,10 +128,11 @@ export class FeedbackHandler {
 			return
 		}
 
-		// Not yet subscribed - request value from console
-		this.subscribeToParameter(path)
+		// Not yet subscribed - register the subscription, then request the value from the console.
+		// The subscription must be registered before subscribeToParameter so that the variable
+		// definitions it creates include this parameter.
 		this.subscriptions[path] = { usages: 1 }
-		this.updateVariables()
+		this.subscribeToParameter(path)
 	}
 
 	/**
@@ -304,8 +305,14 @@ export class FeedbackHandler {
 				continue
 			}
 
-			// Handle channel name specially
-			if (parsed.parameter === 'name' && parsed.channelType && parsed.channelNo !== undefined && parsed.value) {
+			// Handle channel name specially. An empty name is a valid reply (unnamed channel) -
+			// updateChannelName falls back to the default placeholder name for it
+			if (
+				parsed.parameter === 'name' &&
+				parsed.channelType &&
+				parsed.channelNo !== undefined &&
+				parsed.value !== undefined
+			) {
 				this.updateChannelName(parsed.channelType, parsed.channelNo, parsed.value as string)
 				continue
 			}
@@ -760,7 +767,9 @@ export class FeedbackHandler {
 	}
 
 	/**
-	 * Subscribes to a parameter by sending a MIDI "get" request to the console
+	 * Subscribes to a parameter by sending a MIDI "get" request to the console.
+	 * Defines the Companion variables for the parameter (and channel name) BEFORE setting
+	 * any values - values set for undefined variables are discarded by Companion.
 	 * @param path Parameter path
 	 */
 	private subscribeToParameter(path: DLiveParameterPath): void {
@@ -781,8 +790,21 @@ export class FeedbackHandler {
 			return
 		}
 
-		// Request channel name if we haven't already
-		this.ensureChannelNameSubscription(channelType, channelNo)
+		// Track the channel name subscription so the name variable gets defined too
+		const channelKey = `${channelType}:${channelNo}`
+		const isNewChannelName = !this.channelNameSubscriptions.has(channelKey)
+		if (isNewChannelName) {
+			this.channelNameSubscriptions.add(channelKey)
+		}
+
+		// Define the variables for this parameter and channel name
+		this.updateVariables()
+
+		if (isNewChannelName) {
+			// Set a default placeholder name until the console responds, then request the real name
+			this.updateChannelName(channelType, channelNo, this.getDefaultChannelName(channelType, channelNo))
+			this.module.requestChannelName(channelType, channelNo)
+		}
 
 		// Request the current value from the console
 		this.requestParameterValue(channelType, channelNo, parameter)
@@ -844,32 +866,6 @@ export class FeedbackHandler {
 		// Remove from cache
 		delete this.valueCache[path]
 		this.module.log('debug', `Unsubscribed from parameter: ${path}`)
-	}
-
-	/**
-	 * Ensures a channel name is subscribed and requested from the console
-	 * @param channelType Channel type
-	 * @param channelNo Channel number (0-based)
-	 */
-	private ensureChannelNameSubscription(channelType: ChannelType, channelNo: number): void {
-		const channelKey = `${channelType}:${channelNo}`
-
-		if (this.channelNameSubscriptions.has(channelKey)) {
-			// Already requested this channel name
-			return
-		}
-
-		// Mark as subscribed
-		this.channelNameSubscriptions.add(channelKey)
-
-		// Set a default placeholder name until the console responds
-		const defaultName = this.getDefaultChannelName(channelType, channelNo)
-		this.updateChannelName(channelType, channelNo, defaultName)
-
-		// Request channel name from console
-		this.module.requestChannelName(channelType, channelNo)
-
-		this.module.log('debug', `Requested channel name for ${channelKey}`)
 	}
 
 	/**
