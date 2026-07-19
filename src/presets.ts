@@ -11,19 +11,51 @@ interface ChannelTypeConfig {
 	displayName: string
 	variablePrefix: string
 	category: string
+	/** Button background colour, following the dLive default channel colours */
+	bgcolor: number
+	/** Button text colour, chosen for legibility against bgcolor */
+	color: number
 }
+
+/**
+ * Default channel colours from the dLive Director template shows
+ * (dLive colour codes: 1 Red = DCAs, 2 Green = Inputs, 3 Yellow = Mains,
+ * 4 Blue = Groups, 5 Purple = Matrices, 6 Lt Blue = Auxes, 7 White = FX)
+ */
+const CHANNEL_COLOURS = {
+	red: 0xd00000,
+	green: 0x00c000,
+	yellow: 0xffff00,
+	blue: 0x0000d0,
+	purple: 0xc000c0,
+	lightBlue: 0x00c0c0,
+	white: 0xffffff,
+} as const
+
+const BLACK_TEXT = 0x000000
+const WHITE_TEXT = 0xffffff
 
 /**
  * All channel types that support rotary knob presets
  */
 const CHANNEL_TYPES: ChannelTypeConfig[] = [
-	{ channelType: 'input', optionKey: 'input', displayName: 'Input', variablePrefix: 'input', category: 'Inputs' },
+	{
+		channelType: 'input',
+		optionKey: 'input',
+		displayName: 'Input',
+		variablePrefix: 'input',
+		category: 'Inputs',
+		bgcolor: CHANNEL_COLOURS.green,
+		color: BLACK_TEXT,
+	},
 	{
 		channelType: 'mono_group',
 		optionKey: 'monoGroup',
 		displayName: 'Mono Group',
 		variablePrefix: 'mono_group',
 		category: 'Groups',
+		bgcolor: CHANNEL_COLOURS.blue,
+		color: WHITE_TEXT,
 	},
 	{
 		channelType: 'stereo_group',
@@ -31,6 +63,8 @@ const CHANNEL_TYPES: ChannelTypeConfig[] = [
 		displayName: 'Stereo Group',
 		variablePrefix: 'stereo_group',
 		category: 'Groups',
+		bgcolor: CHANNEL_COLOURS.blue,
+		color: WHITE_TEXT,
 	},
 	{
 		channelType: 'mono_aux',
@@ -38,6 +72,8 @@ const CHANNEL_TYPES: ChannelTypeConfig[] = [
 		displayName: 'Mono Aux',
 		variablePrefix: 'mono_aux',
 		category: 'Auxes',
+		bgcolor: CHANNEL_COLOURS.lightBlue,
+		color: BLACK_TEXT,
 	},
 	{
 		channelType: 'stereo_aux',
@@ -45,6 +81,8 @@ const CHANNEL_TYPES: ChannelTypeConfig[] = [
 		displayName: 'Stereo Aux',
 		variablePrefix: 'stereo_aux',
 		category: 'Auxes',
+		bgcolor: CHANNEL_COLOURS.lightBlue,
+		color: BLACK_TEXT,
 	},
 	{
 		channelType: 'mono_matrix',
@@ -52,6 +90,8 @@ const CHANNEL_TYPES: ChannelTypeConfig[] = [
 		displayName: 'Mono Matrix',
 		variablePrefix: 'mono_matrix',
 		category: 'Matrices',
+		bgcolor: CHANNEL_COLOURS.purple,
+		color: WHITE_TEXT,
 	},
 	{
 		channelType: 'stereo_matrix',
@@ -59,6 +99,8 @@ const CHANNEL_TYPES: ChannelTypeConfig[] = [
 		displayName: 'Stereo Matrix',
 		variablePrefix: 'stereo_matrix',
 		category: 'Matrices',
+		bgcolor: CHANNEL_COLOURS.purple,
+		color: WHITE_TEXT,
 	},
 	{
 		channelType: 'mono_fx_send',
@@ -66,6 +108,8 @@ const CHANNEL_TYPES: ChannelTypeConfig[] = [
 		displayName: 'Mono FX Send',
 		variablePrefix: 'mono_fx_send',
 		category: 'FX',
+		bgcolor: CHANNEL_COLOURS.white,
+		color: BLACK_TEXT,
 	},
 	{
 		channelType: 'stereo_fx_send',
@@ -73,6 +117,8 @@ const CHANNEL_TYPES: ChannelTypeConfig[] = [
 		displayName: 'Stereo FX Send',
 		variablePrefix: 'stereo_fx_send',
 		category: 'FX',
+		bgcolor: CHANNEL_COLOURS.white,
+		color: BLACK_TEXT,
 	},
 	{
 		channelType: 'fx_return',
@@ -80,9 +126,27 @@ const CHANNEL_TYPES: ChannelTypeConfig[] = [
 		displayName: 'FX Return',
 		variablePrefix: 'fx_return',
 		category: 'FX',
+		bgcolor: CHANNEL_COLOURS.white,
+		color: BLACK_TEXT,
 	},
-	{ channelType: 'main', optionKey: 'main', displayName: 'Main', variablePrefix: 'main', category: 'Mains' },
-	{ channelType: 'dca', optionKey: 'dca', displayName: 'DCA', variablePrefix: 'dca', category: 'DCAs' },
+	{
+		channelType: 'main',
+		optionKey: 'main',
+		displayName: 'Main',
+		variablePrefix: 'main',
+		category: 'Mains',
+		bgcolor: CHANNEL_COLOURS.yellow,
+		color: BLACK_TEXT,
+	},
+	{
+		channelType: 'dca',
+		optionKey: 'dca',
+		displayName: 'DCA',
+		variablePrefix: 'dca',
+		category: 'DCAs',
+		bgcolor: CHANNEL_COLOURS.red,
+		color: WHITE_TEXT,
+	},
 ]
 
 /**
@@ -121,14 +185,14 @@ function createRotaryKnobPreset(config: ChannelTypeConfig): CompanionButtonPrese
 		style: {
 			text: `$(dLive:dlive_${config.variablePrefix}_1_name)\\n$(dLive:dlive_${config.variablePrefix}_1_fader)`,
 			size: 14,
-			color: 0xffffff,
-			bgcolor: 0x6e6e6e,
+			color: config.color,
+			bgcolor: config.bgcolor,
 		},
 		previewStyle: {
 			text: `${config.displayName}\\nFader Level`,
 			size: 14,
-			color: 0xffffff,
-			bgcolor: 0x6e6e6e,
+			color: config.color,
+			bgcolor: config.bgcolor,
 		},
 		options: {
 			rotaryActions: true,
