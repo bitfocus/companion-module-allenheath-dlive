@@ -2,6 +2,7 @@ import type { CompanionButtonPresetDefinition } from '@companion-module/base'
 import { noop } from 'lodash/fp'
 
 import {
+	CUE_LIST_COUNT,
 	DCA_COUNT,
 	FX_RETURN_COUNT,
 	INPUT_CHANNEL_COUNT,
@@ -10,6 +11,7 @@ import {
 	MONO_FX_SEND_COUNT,
 	MONO_GROUP_COUNT,
 	MONO_MATRIX_COUNT,
+	SCENE_COUNT,
 	STEREO_AUX_COUNT,
 	STEREO_FX_SEND_COUNT,
 	STEREO_GROUP_COUNT,
@@ -105,5 +107,57 @@ describe('presets', () => {
 	it('creates one mute button preset per channel type', () => {
 		const mutePresetIds = Object.keys(moduleInstance.presetDefinitions).filter((id) => id.startsWith('mute_button_'))
 		expect(mutePresetIds).toHaveLength(14)
+	})
+
+	it('creates scene recall presets for the recallable scenes (9-500)', () => {
+		const scenePresetIds = Object.keys(moduleInstance.presetDefinitions).filter((id) => id.startsWith('scene_recall_'))
+		expect(scenePresetIds).toHaveLength(SCENE_COUNT - 8)
+		expect(moduleInstance.presetDefinitions.scene_recall_8).toBeUndefined() // Scenes 1-8 are reserved
+		const scene9 = moduleInstance.presetDefinitions.scene_recall_9 as CompanionButtonPresetDefinition
+		expect(scene9.steps[0].down[0].options).toMatchObject({ scene: 8 })
+		expect(moduleInstance.presetDefinitions[`scene_recall_${SCENE_COUNT}`]).toBeDefined()
+	})
+
+	it('creates cue recall presets for every recall ID', () => {
+		const cuePresetIds = Object.keys(moduleInstance.presetDefinitions).filter((id) => id.startsWith('cue_recall_'))
+		expect(cuePresetIds).toHaveLength(CUE_LIST_COUNT)
+		const cue0 = moduleInstance.presetDefinitions.cue_recall_0 as CompanionButtonPresetDefinition
+		expect(cue0.steps[0].down[0].options).toMatchObject({ recallId: 0 })
+	})
+
+	it('creates scene control and MIDI transport presets', () => {
+		expect(moduleInstance.presetDefinitions.scene_control_go).toBeDefined()
+		expect(moduleInstance.presetDefinitions.scene_control_next).toBeDefined()
+		expect(moduleInstance.presetDefinitions.scene_control_previous).toBeDefined()
+
+		const transportIds = Object.keys(moduleInstance.presetDefinitions).filter((id) => id.startsWith('midi_transport_'))
+		expect(transportIds).toHaveLength(8)
+		const play = moduleInstance.presetDefinitions.midi_transport_2 as CompanionButtonPresetDefinition
+		expect(play.steps[0].down[0].options).toMatchObject({ transport: 2 })
+	})
+
+	describe('connection target gating', () => {
+		const makeInstanceWithTarget = (target: ConnectionTarget): MockModuleInstance => {
+			const instance = new MockModuleInstance({})
+			instance.config = { host: '192.168.1.70', target, useCustomPort: false, midiPort: 51325, midiChannel: 0 }
+			UpdatePresets(instance as unknown as ModuleInstance)
+			return instance
+		}
+
+		it('only offers scene presets for a MixRack target', () => {
+			const instance = makeInstanceWithTarget('mixrack')
+			expect(instance.presetDefinitions.scene_recall_9).toBeDefined()
+			expect(instance.presetDefinitions.cue_recall_0).toBeUndefined()
+			expect(instance.presetDefinitions.scene_control_go).toBeUndefined()
+			expect(instance.presetDefinitions.midi_transport_2).toBeDefined()
+		})
+
+		it('only offers cue and scene control presets for a Surface target', () => {
+			const instance = makeInstanceWithTarget('surface')
+			expect(instance.presetDefinitions.scene_recall_9).toBeUndefined()
+			expect(instance.presetDefinitions.cue_recall_0).toBeDefined()
+			expect(instance.presetDefinitions.scene_control_go).toBeDefined()
+			expect(instance.presetDefinitions.midi_transport_2).toBeDefined()
+		})
 	})
 })

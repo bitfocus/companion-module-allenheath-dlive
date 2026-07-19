@@ -80,8 +80,9 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 			this.updateStatus(InstanceStatus.BadConfig)
 			return
 		}
-		// Re-register actions so target-specific actions (scene/cue recall etc.) follow the config
+		// Re-register actions and presets so target-specific ones (scene/cue recall etc.) follow the config
 		UpdateActions(this)
+		UpdatePresets(this)
 		this.initialiseMidi()
 	}
 
