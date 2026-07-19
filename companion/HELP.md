@@ -2,15 +2,24 @@
 
 ## Connecting to the dLive
 
-The connection accepts three parameters:
+The connection accepts the following parameters:
+
+#### Connect To
+
+Whether to connect to the MixRack or the Surface. Some functions are device specific in the dLive MIDI protocol:
+
+- **MixRack only**: Recall Scene
+- **Surface only**: Recall Cue List, Go Next/Previous
+
+Actions that don't apply to the selected device are hidden from the actions list.
 
 #### Target IP
 
-The IP address of the dLive console. By default this is `192.168.1.70` for a MixRack and `192.168.1.71` for a surface.
+The IP address of the dLive device. By default this is `192.168.1.70` for a MixRack and `192.168.1.71` for a surface.
 
-#### MIDI Port
+#### Use Custom MIDI Port
 
-The MIDI TCP port to connect to. By default this is `51325` for a MixRack and `51328` for a surface.
+When unchecked, the standard unencrypted MIDI TCP rendezvous port is used automatically: `51325` for a MixRack and `51328` for a surface. Check this to enter a custom port instead. The TLS/SSL encrypted ports (`51327`/`51329`) are not supported.
 
 #### Main MIDI Channels
 
@@ -38,15 +47,16 @@ The following actions are supported:
 |Set Socket Preamp 48v|Enable or disable 48v of a MixRack or DX card socket|Socket Type, Socket Number, 48v|
 |Set Channel Name|Set the name of a channel|Channel Type, Channel Number, Name|
 |Set Channel Colour|Set the colour of a channel|Channel Type, Channel Number, Colour|
-|Recall Scene|Recall a scene|Scene Number|
-|Recall Cue List|Recall a cue list|Recall ID|
-|Go Next/Previous (Surface Only)|Trigger the Go/Next/Previous action using the MIDI CC messages defined in the console settings|Control Number, Control Value|
+|Recall Scene (MixRack only)|Recall a scene|Scene Number|
+|Recall Cue List (Surface only)|Recall a cue list|Recall ID|
+|Go Next/Previous (Surface only)|Trigger the Go/Next/Previous action using the MIDI CC messages defined in the console settings|Control Number, Control Value|
 |Parametric EQ|Set the type, frequency, width and gain of a parametric EQ band|Channel Type, Channel Number, Band, Type, Frequency, Width, Gain|
 |HPF Frequency|Set the high pass filter frequency of an input channel|Input Channel, Frequency|
 |Set HPF On/Off|Enable or disable the high pass filter of an input channel|Input Channel, HPF|
 |Set UFX Global Key|Set the global key for all UFX units|Key|
 |Set UFX Global Scale|Set the global scale for all UFX units|Scale|
 |Set UFX Unit Parameter|Set a UFX parameter using the MIDI channel and control message defined in the console settings|MIDI Channel, Control Number, Control Value|
+|MIDI Transport|Send a MIDI Machine Control (MMC) transport command (standard MMC message with the all-call device id; the dLive protocol lists MMC transport without a dLive-specific format)|Command|
 
 ### Important Note: Feedback-Dependent Actions
 

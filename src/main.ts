@@ -1,4 +1,5 @@
 import {
+	CompanionStaticUpgradeScript,
 	InstanceBase,
 	InstanceStatus,
 	Regex,
@@ -10,6 +11,7 @@ import { indexOf } from 'lodash/fp'
 
 import { UpdateActions } from './actions.js'
 import {
+	CONNECTION_TARGET_CHOICES,
 	CUE_LISTS_PER_BANK,
 	DEFAULT_MIDI_CHANNEL,
 	DEFAULT_MIDI_TCP_PORT,
@@ -19,8 +21,10 @@ import {
 	MAIN_MIDI_CHANNEL_CHOICES,
 	MAX_TCP_PORT,
 	MIN_TCP_PORT,
+	MIXRACK_MIDI_TCP_PORT,
 	SCENES_PER_BANK,
 	SOCKET_MIDI_NOTE_OFFSETS,
+	SURFACE_MIDI_TCP_PORT,
 	SYSEX_HEADER,
 } from './constants.js'
 import { FeedbackHandler } from './FeedbackHandler.js'
@@ -76,6 +80,8 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 			this.updateStatus(InstanceStatus.BadConfig)
 			return
 		}
+		// Re-register actions so target-specific actions (scene/cue recall etc.) follow the config
+		UpdateActions(this)
 		this.initialiseMidi()
 	}
 
@@ -93,6 +99,20 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 	 * Initialises the MIDI TCP connection to the dLive console
 	 * Destroys any existing connection before creating a new one
 	 */
+	/**
+	 * Resolves the MIDI TCP port to connect to: the custom port if enabled,
+	 * otherwise the standard unencrypted rendezvous port for the connection target
+	 */
+	get resolvedMidiPort(): number {
+		if (!this.config) {
+			return DEFAULT_MIDI_TCP_PORT
+		}
+		if (this.config.useCustomPort) {
+			return this.config.midiPort
+		}
+		return this.config.target === 'surface' ? SURFACE_MIDI_TCP_PORT : MIXRACK_MIDI_TCP_PORT
+	}
+
 	initialiseMidi(): void {
 		if (!this.config) {
 			this.log('error', 'Unable to initialise MIDI, as no config object exists')
@@ -100,7 +120,9 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 		}
 		this.destroyMidiSocket()
 
-		const { host, midiPort } = this.config
+		const { host } = this.config
+		const midiPort = this.resolvedMidiPort
+		this.log('info', `Connecting to ${this.config.target} at ${host}:${midiPort}`)
 		this.midiSocket = new TCPHelper(host, midiPort)
 			.on('status_change', (status, message) => {
 				this.updateStatus(status, message)
@@ -588,6 +610,15 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 					this.sendMidiToDlive([0xb0 + midiChannel, controlNumber, value])
 					break
 				}
+
+				case 'midi_transport': {
+					// Standard MIDI Machine Control message: F0 7F <deviceId> 06 <command> F7.
+					// The dLive spec lists MMC transport but gives no dLive-specific format,
+					// so the all-call device id (7F) is used
+					const { transportCommand } = params
+					this.sendMidiToDlive([0xf0, 0x7f, 0x7f, 0x06, transportCommand, 0xf7])
+					break
+				}
 			}
 		} catch (error) {
 			this.log('error', `Error sending command: ${JSON.stringify(error)}`)
@@ -604,23 +635,41 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 				value: 'This module is for the Allen & Heath dLive mixer',
 			},
 			{
+				type: 'dropdown',
+				id: 'target',
+				label: 'Connect To',
+				width: 6,
+				tooltip:
+					'Some functions are device specific: scene recall is MixRack only; cue list recall and Go/Next/Previous are Surface only',
+				default: 'mixrack',
+				choices: CONNECTION_TARGET_CHOICES,
+			},
+			{
 				type: 'textinput',
 				id: 'host',
 				label: 'Target IP',
-				tooltip: 'Default for surface is 192.168.1.71, default for mixrack is 192.168.1.70',
+				tooltip: 'Default for mixrack is 192.168.1.70, default for surface is 192.168.1.71',
 				width: 6,
 				default: DEFAULT_TARGET_IP,
 				regex: Regex.IP,
+			},
+			{
+				type: 'checkbox',
+				id: 'useCustomPort',
+				label: 'Use Custom MIDI Port',
+				width: 6,
+				tooltip: `When unchecked, the standard unencrypted port is used: ${MIXRACK_MIDI_TCP_PORT} for MixRack, ${SURFACE_MIDI_TCP_PORT} for Surface`,
+				default: false,
 			},
 			{
 				type: 'number',
 				id: 'midiPort',
 				label: 'MIDI Port',
 				width: 6,
-				tooltip: 'Default for surface is 51328, default for mixrack is 51325',
 				default: DEFAULT_MIDI_TCP_PORT,
 				min: MIN_TCP_PORT,
 				max: MAX_TCP_PORT,
+				isVisible: (options) => options.useCustomPort === true,
 			},
 			{
 				type: 'dropdown',
@@ -634,4 +683,26 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 	}
 }
 
-runEntrypoint(ModuleInstance, [])
+/**
+ * Upgrade script for configs saved before the Connect To / custom port fields existed.
+ * Infers the target from the previously configured port and preserves non-standard ports,
+ * so existing connections keep working unchanged.
+ */
+const addConnectionTargetUpgrade: CompanionStaticUpgradeScript<Record<string, unknown>> = (_context, props) => {
+	const config = props.config
+
+	if (!config || config.target !== undefined) {
+		return { updatedConfig: null, updatedActions: [], updatedFeedbacks: [] }
+	}
+
+	const midiPort = config.midiPort as number | undefined
+	const updatedConfig: Record<string, unknown> = {
+		...config,
+		target: midiPort === SURFACE_MIDI_TCP_PORT || midiPort === 51329 ? 'surface' : 'mixrack',
+		useCustomPort: midiPort !== undefined && midiPort !== MIXRACK_MIDI_TCP_PORT && midiPort !== SURFACE_MIDI_TCP_PORT,
+	}
+
+	return { updatedConfig, updatedActions: [], updatedFeedbacks: [] }
+}
+
+runEntrypoint(ModuleInstance, [addConnectionTargetUpgrade])

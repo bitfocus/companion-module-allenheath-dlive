@@ -88,7 +88,13 @@ describe('setUfxUnitParameter action', () => {
 
 	describe('with a non-default base MIDI channel', () => {
 		beforeAll(() => {
-			moduleInstance.config = { host: '192.168.1.70', midiPort: 51325, midiChannel: 4 }
+			moduleInstance.config = {
+				host: '192.168.1.70',
+				target: 'mixrack',
+				useCustomPort: false,
+				midiPort: 51325,
+				midiChannel: 4,
+			}
 		})
 
 		afterAll(() => {

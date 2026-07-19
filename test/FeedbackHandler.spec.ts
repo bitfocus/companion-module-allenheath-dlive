@@ -60,7 +60,10 @@ describe('FeedbackHandler', () => {
 			feedbackHandler.mapFeedback('feedback1', 'input:1:mute')
 
 			// Should have logged the change
-			expect(mockModule.log).toHaveBeenCalledWith('debug', 'Feedback feedback1 changing from input:0:mute to input:1:mute')
+			expect(mockModule.log).toHaveBeenCalledWith(
+				'debug',
+				'Feedback feedback1 changing from input:0:mute to input:1:mute',
+			)
 
 			// Should update variables twice:
 			// 1st call: empty array (after removing input:0:mute)

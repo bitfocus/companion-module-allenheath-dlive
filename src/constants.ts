@@ -2,11 +2,20 @@ import { DropdownChoice } from '@companion-module/base'
 import { times } from 'lodash/fp'
 
 // Companion config
-export const DEFAULT_MIDI_TCP_PORT = 51328
+// Unencrypted MIDI TCP rendezvous ports from the dLive MIDI over TCP protocol.
+// The TLS ports (51327 MixRack / 51329 Surface) are not supported by this module.
+export const MIXRACK_MIDI_TCP_PORT = 51325
+export const SURFACE_MIDI_TCP_PORT = 51328
+export const DEFAULT_MIDI_TCP_PORT = MIXRACK_MIDI_TCP_PORT
 export const MIN_TCP_PORT = 1
 export const MAX_TCP_PORT = 65535
 export const DEFAULT_MIDI_CHANNEL = 0
 export const DEFAULT_TARGET_IP = '192.168.1.70'
+
+export const CONNECTION_TARGET_CHOICES: { label: string; id: ConnectionTarget }[] = [
+	{ label: 'MixRack', id: 'mixrack' },
+	{ label: 'Surface', id: 'surface' },
+]
 
 // dLive constants
 export const INPUT_CHANNEL_COUNT = 128
@@ -250,6 +259,18 @@ export const UFX_KEY_CHOICES: DropdownChoice[] = [
 export const UFX_SCALE_CHOICES: DropdownChoice[] = [
 	{ label: 'Major', id: 0x00 },
 	{ label: 'Minor', id: 0x01 },
+]
+
+// MIDI Machine Control transport commands (standard MMC command numbers)
+export const MMC_COMMAND_CHOICES: DropdownChoice[] = [
+	{ label: 'Stop', id: 0x01 },
+	{ label: 'Play', id: 0x02 },
+	{ label: 'Deferred Play', id: 0x03 },
+	{ label: 'Fast Forward', id: 0x04 },
+	{ label: 'Rewind', id: 0x05 },
+	{ label: 'Record Strobe (Punch In)', id: 0x06 },
+	{ label: 'Record Exit (Punch Out)', id: 0x07 },
+	{ label: 'Pause', id: 0x09 },
 ]
 
 export const MAIN_MIDI_CHANNEL_CHOICES: DropdownChoice[] = [

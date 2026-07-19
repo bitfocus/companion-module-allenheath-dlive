@@ -1,3 +1,4 @@
+import { CompanionActionDefinitions } from '@companion-module/base'
 import { includes } from 'lodash/fp'
 
 import {
@@ -11,6 +12,7 @@ import {
 	EQ_TYPE_CHOICES,
 	FADER_LEVEL_CHOICES,
 	INPUT_CHANNEL_COUNT,
+	MMC_COMMAND_CHOICES,
 	MUTE_GROUP_COUNT,
 	PREAMP_MAXIMUM_GAIN,
 	PREAMP_MINIMUM_GAIN,
@@ -32,7 +34,7 @@ import {
 import * as validators from './validators/index.js'
 
 export const UpdateActions = (companionModule: ModuleInstance): void => {
-	companionModule.setActionDefinitions({
+	const actionDefinitions: CompanionActionDefinitions = {
 		mute: {
 			name: 'Mute',
 			description: 'Mute or unmute a channel',
@@ -988,5 +990,43 @@ export const UpdateActions = (companionModule: ModuleInstance): void => {
 				})
 			},
 		},
-	})
+
+		midiTransport: {
+			name: 'MIDI Transport',
+			description: 'Send a MIDI Machine Control (MMC) transport command',
+			options: [
+				{
+					type: 'dropdown',
+					label: 'Command',
+					id: 'transport',
+					default: 0x02,
+					choices: MMC_COMMAND_CHOICES,
+					minChoicesForSearch: 0,
+				},
+			],
+			callback: async (action) => {
+				const { options } = validators.parseSetMidiTransportAction(action)
+				companionModule.processCommand({
+					command: 'midi_transport',
+					params: {
+						transportCommand: options.transport,
+					},
+				})
+			},
+		},
+	}
+
+	// Some functions are device specific in the dLive MIDI protocol:
+	// scene recall is MixRack only; cue list recall and Go/Next/Previous are Surface only.
+	// When no config is available yet, all actions are offered.
+	const target = companionModule.config?.target
+	if (target === 'surface') {
+		delete actionDefinitions.recallScene
+	}
+	if (target === 'mixrack') {
+		delete actionDefinitions.recallCueList
+		delete actionDefinitions.goNextPrevious
+	}
+
+	companionModule.setActionDefinitions(actionDefinitions)
 }

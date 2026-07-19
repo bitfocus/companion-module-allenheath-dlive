@@ -392,12 +392,22 @@ const SetUfxUnitParameterActionSchema = CompanionActionEventBaseSchema.extend({
 	}),
 })
 
+const SetMidiTransportActionSchema = CompanionActionEventBaseSchema.extend({
+	options: z.object({
+		transport: z.number().int().min(0x01).max(0x09),
+	}),
+})
+
 /**
- * Schema representing the DLive module configuration
+ * Schema representing the DLive module configuration.
+ * target and useCustomPort default for configs saved before they existed
+ * (an upgrade script in main.ts maps old configs based on their port).
  */
 const DliveModuleConfigSchema = z.object({
 	host: z.string(),
 	midiChannel: z.number().int().min(0).max(11),
+	target: z.enum(['mixrack', 'surface']).default('mixrack'),
+	useCustomPort: z.boolean().default(false),
 	midiPort: z.number().int().min(MIN_TCP_PORT).max(MAX_TCP_PORT),
 })
 
@@ -448,6 +458,8 @@ export type SetUfxGlobalKeyAction = z.infer<typeof SetUfxGlobalKeyActionSchema>
 export type SetUfxGlobalScaleAction = z.infer<typeof SetUfxGlobalScaleActionSchema>
 
 export type SetUfxUnitParameterAction = z.infer<typeof SetUfxUnitParameterActionSchema>
+
+export type SetMidiTransportAction = z.infer<typeof SetMidiTransportActionSchema>
 
 export const parseMuteAction = (action: CompanionActionEvent): MuteAction => MuteActionSchema.parse(action)
 
@@ -519,6 +531,9 @@ export const parseSetUfxGlobalScaleAction = (action: CompanionActionEvent): SetU
 
 export const parseSetUfxUnitParameterAction = (action: CompanionActionEvent): SetUfxUnitParameterAction =>
 	SetUfxUnitParameterActionSchema.parse(action)
+
+export const parseSetMidiTransportAction = (action: CompanionActionEvent): SetMidiTransportAction =>
+	SetMidiTransportActionSchema.parse(action)
 
 export const parseDliveModuleConfig = (config: Record<string, unknown>): DLiveModuleConfig =>
 	DliveModuleConfigSchema.parse(config)

@@ -71,7 +71,13 @@ describe('recallScene action', () => {
 		const baseMidiChannel = 4
 
 		beforeAll(() => {
-			moduleInstance.config = { host: '192.168.1.70', midiPort: 51325, midiChannel: baseMidiChannel }
+			moduleInstance.config = {
+				host: '192.168.1.70',
+				target: 'mixrack',
+				useCustomPort: false,
+				midiPort: 51325,
+				midiChannel: baseMidiChannel,
+			}
 		})
 
 		afterAll(() => {
