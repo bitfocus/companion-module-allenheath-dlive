@@ -177,10 +177,30 @@ const MuteActionSchema = CompanionActionEventBaseSchema.extend({
 	}),
 })
 
+const MuteToggleActionSchema = CompanionActionEventBaseSchema.extend({
+	options: z.object({
+		...channelOptions,
+	}),
+})
+
 const FaderLevelActionSchema = CompanionActionEventBaseSchema.extend({
 	options: z.object({
 		...channelOptions,
 		level: z.number().int().min(0).max(127),
+	}),
+})
+
+const FaderLevelIncrementActionSchema = CompanionActionEventBaseSchema.extend({
+	options: z.object({
+		...channelOptions,
+		increment: z.number().min(0.1).max(3.0),
+	}),
+})
+
+const FaderLevelDecrementActionSchema = CompanionActionEventBaseSchema.extend({
+	options: z.object({
+		...channelOptions,
+		decrement: z.number().min(0.1).max(3.0),
 	}),
 })
 
@@ -372,18 +392,34 @@ const SetUfxUnitParameterActionSchema = CompanionActionEventBaseSchema.extend({
 	}),
 })
 
+const SetMidiTransportActionSchema = CompanionActionEventBaseSchema.extend({
+	options: z.object({
+		transport: z.number().int().min(0x01).max(0x09),
+	}),
+})
+
 /**
- * Schema representing the DLive module configuration
+ * Schema representing the DLive module configuration.
+ * target and useCustomPort default for configs saved before they existed
+ * (an upgrade script in main.ts maps old configs based on their port).
  */
 const DliveModuleConfigSchema = z.object({
 	host: z.string(),
 	midiChannel: z.number().int().min(0).max(11),
+	target: z.enum(['mixrack', 'surface']).default('mixrack'),
+	useCustomPort: z.boolean().default(false),
 	midiPort: z.number().int().min(MIN_TCP_PORT).max(MAX_TCP_PORT),
 })
 
 export type MuteAction = z.infer<typeof MuteActionSchema>
 
+export type MuteToggleAction = z.infer<typeof MuteToggleActionSchema>
+
 export type FaderLevelAction = z.infer<typeof FaderLevelActionSchema>
+
+export type FaderLevelIncrementAction = z.infer<typeof FaderLevelIncrementActionSchema>
+
+export type FaderLevelDecrementAction = z.infer<typeof FaderLevelDecrementActionSchema>
 
 export type AssignChannelToMainMixAction = z.infer<typeof AssignChannelToMainMixActionSchema>
 
@@ -423,10 +459,21 @@ export type SetUfxGlobalScaleAction = z.infer<typeof SetUfxGlobalScaleActionSche
 
 export type SetUfxUnitParameterAction = z.infer<typeof SetUfxUnitParameterActionSchema>
 
+export type SetMidiTransportAction = z.infer<typeof SetMidiTransportActionSchema>
+
 export const parseMuteAction = (action: CompanionActionEvent): MuteAction => MuteActionSchema.parse(action)
+
+export const parseMuteToggleAction = (action: CompanionActionEvent): MuteToggleAction =>
+	MuteToggleActionSchema.parse(action)
 
 export const parseFaderLevelAction = (action: CompanionActionEvent): FaderLevelAction =>
 	FaderLevelActionSchema.parse(action)
+
+export const parseFaderLevelIncrementAction = (action: CompanionActionEvent): FaderLevelIncrementAction =>
+	FaderLevelIncrementActionSchema.parse(action)
+
+export const parseFaderLevelDecrementAction = (action: CompanionActionEvent): FaderLevelDecrementAction =>
+	FaderLevelDecrementActionSchema.parse(action)
 
 export const parseAssignChannelToMainMixAction = (action: CompanionActionEvent): AssignChannelToMainMixAction =>
 	AssignChannelToMainMixActionSchema.parse(action)
@@ -484,6 +531,9 @@ export const parseSetUfxGlobalScaleAction = (action: CompanionActionEvent): SetU
 
 export const parseSetUfxUnitParameterAction = (action: CompanionActionEvent): SetUfxUnitParameterAction =>
 	SetUfxUnitParameterActionSchema.parse(action)
+
+export const parseSetMidiTransportAction = (action: CompanionActionEvent): SetMidiTransportAction =>
+	SetMidiTransportActionSchema.parse(action)
 
 export const parseDliveModuleConfig = (config: Record<string, unknown>): DLiveModuleConfig =>
 	DliveModuleConfigSchema.parse(config)

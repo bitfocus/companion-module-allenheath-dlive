@@ -1,8 +1,17 @@
-import { InstanceBase, Regex, runEntrypoint, SomeCompanionConfigField, TCPHelper } from '@companion-module/base'
+import {
+	CompanionStaticUpgradeScript,
+	InstanceBase,
+	InstanceStatus,
+	Regex,
+	runEntrypoint,
+	SomeCompanionConfigField,
+	TCPHelper,
+} from '@companion-module/base'
 import { indexOf } from 'lodash/fp'
 
 import { UpdateActions } from './actions.js'
 import {
+	CONNECTION_TARGET_CHOICES,
 	CUE_LISTS_PER_BANK,
 	DEFAULT_MIDI_CHANNEL,
 	DEFAULT_MIDI_TCP_PORT,
@@ -12,10 +21,15 @@ import {
 	MAIN_MIDI_CHANNEL_CHOICES,
 	MAX_TCP_PORT,
 	MIN_TCP_PORT,
+	MIXRACK_MIDI_TCP_PORT,
 	SCENES_PER_BANK,
 	SOCKET_MIDI_NOTE_OFFSETS,
+	SURFACE_MIDI_TCP_PORT,
 	SYSEX_HEADER,
 } from './constants.js'
+import { FeedbackHandler } from './FeedbackHandler.js'
+import { UpdateFeedbacks } from './feedbacks.js'
+import { UpdatePresets } from './presets.js'
 import {
 	eqGainToMidiValue,
 	eqWidthToMidiValue,
@@ -28,6 +42,7 @@ import { parseDliveModuleConfig } from './validators/index.js'
 export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 	config?: DLiveModuleConfig
 	midiSocket?: TCPHelper
+	feedbackHandler?: FeedbackHandler
 
 	get baseMidiChannel(): number {
 		return this.config?.midiChannel ?? 0
@@ -43,8 +58,16 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 			this.config = parseDliveModuleConfig(initialConfig)
 		} catch (error) {
 			this.log('error', `Unable to parse config object during init method: ${JSON.stringify(error)}`)
+			this.updateStatus(InstanceStatus.BadConfig)
+			return
 		}
+
+		// Initialize feedback handler
+		this.feedbackHandler = new FeedbackHandler(this)
+
 		UpdateActions(this)
+		UpdateFeedbacks(this)
+		UpdatePresets(this)
 		this.initialiseMidi()
 	}
 
@@ -54,12 +77,20 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 			this.config = parseDliveModuleConfig(updatedConfig)
 		} catch (error) {
 			this.log('error', `Unable to parse config object during configUpdated method: ${JSON.stringify(error)}`)
+			this.updateStatus(InstanceStatus.BadConfig)
+			return
 		}
+		// Re-register actions and presets so target-specific ones (scene/cue recall etc.) follow the config
+		UpdateActions(this)
+		UpdatePresets(this)
 		this.initialiseMidi()
 	}
 
 	async destroy(): Promise<void> {
 		this.log('debug', `Destroying module`)
+
+		// Clear feedback subscriptions
+		this.feedbackHandler?.clear()
 
 		this.destroyMidiSocket()
 	}
@@ -69,6 +100,20 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 	 * Initialises the MIDI TCP connection to the dLive console
 	 * Destroys any existing connection before creating a new one
 	 */
+	/**
+	 * Resolves the MIDI TCP port to connect to: the custom port if enabled,
+	 * otherwise the standard unencrypted rendezvous port for the connection target
+	 */
+	get resolvedMidiPort(): number {
+		if (!this.config) {
+			return DEFAULT_MIDI_TCP_PORT
+		}
+		if (this.config.useCustomPort) {
+			return this.config.midiPort
+		}
+		return this.config.target === 'surface' ? SURFACE_MIDI_TCP_PORT : MIXRACK_MIDI_TCP_PORT
+	}
+
 	initialiseMidi(): void {
 		if (!this.config) {
 			this.log('error', 'Unable to initialise MIDI, as no config object exists')
@@ -76,7 +121,9 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 		}
 		this.destroyMidiSocket()
 
-		const { host, midiPort } = this.config
+		const { host } = this.config
+		const midiPort = this.resolvedMidiPort
+		this.log('info', `Connecting to ${this.config.target} at ${host}:${midiPort}`)
 		this.midiSocket = new TCPHelper(host, midiPort)
 			.on('status_change', (status, message) => {
 				this.updateStatus(status, message)
@@ -86,9 +133,13 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 			})
 			.on('connect', () => {
 				this.log('debug', `MIDI Connected to ${host}`)
+				// Request current values for all subscribed parameters
+				this.feedbackHandler?.requestAllSubscribedValues()
 			})
 			.on('data', (data) => {
 				this.log('debug', `received MIDI data: ${data.toString('hex')}`)
+				// Process incoming MIDI data for feedback
+				this.feedbackHandler?.processMidiData(data)
 			})
 	}
 
@@ -102,11 +153,67 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 			return
 		}
 		this.log('debug', `Sending MIDI: ${midiMessage}`)
-		try {
-			void this.midiSocket.send(Buffer.from(midiMessage))
-		} catch (error) {
-			this.log('error', `Error sending MIDI: ${JSON.stringify(error)}`)
-		}
+		this.midiSocket.send(Buffer.from(midiMessage)).catch((error: Error) => {
+			this.log('error', `Error sending MIDI: ${error.message}`)
+		})
+	}
+
+	/**
+	 * Requests the current mute status from the console via SysEx Get command
+	 * SysEx format: SysEx Header, 0N, 05, 09, CH, F7
+	 * @param channelType - The type of channel
+	 * @param channelNo - The channel number (0-based)
+	 */
+	requestMuteStatus(channelType: ChannelType, channelNo: number): void {
+		const { midiChannelOffset, midiNoteOffset } = getMidiOffsetsForChannelType(channelType)
+		this.sendMidiToDlive([
+			...SYSEX_HEADER,
+			this.baseMidiChannel + midiChannelOffset,
+			0x05,
+			0x09,
+			channelNo + midiNoteOffset,
+			0xf7,
+		])
+		this.log('debug', `Requested mute status for ${channelType}:${channelNo}`)
+	}
+
+	/**
+	 * Requests the current fader level from the console via SysEx Get command
+	 * SysEx format: SysEx Header, 0N, 05, 0B, 17, CH, F7
+	 * @param channelType - The type of channel
+	 * @param channelNo - The channel number (0-based)
+	 */
+	requestFaderLevel(channelType: ChannelType, channelNo: number): void {
+		const { midiChannelOffset, midiNoteOffset } = getMidiOffsetsForChannelType(channelType)
+		this.sendMidiToDlive([
+			...SYSEX_HEADER,
+			this.baseMidiChannel + midiChannelOffset,
+			0x05,
+			0x0b,
+			0x17,
+			channelNo + midiNoteOffset,
+			0xf7,
+		])
+		this.log('debug', `Requested fader level for ${channelType}:${channelNo}`)
+	}
+
+	/**
+	 * Requests the channel name from the console via SysEx Get command
+	 * SysEx format: SysEx Header, 0N, 01, CH, F7
+	 * Console responds with: SysEx Header, 0N, 02, CH, Name, F7 (Name = Hex ASCII String)
+	 * @param channelType - The type of channel
+	 * @param channelNo - The channel number (0-based)
+	 */
+	requestChannelName(channelType: ChannelType, channelNo: number): void {
+		const { midiChannelOffset, midiNoteOffset } = getMidiOffsetsForChannelType(channelType)
+		this.sendMidiToDlive([
+			...SYSEX_HEADER,
+			this.baseMidiChannel + midiChannelOffset,
+			0x01,
+			channelNo + midiNoteOffset,
+			0xf7,
+		])
+		this.log('debug', `Requested channel name for ${channelType}:${channelNo}`)
 	}
 
 	/**
@@ -136,6 +243,8 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 						channelNo + midiNoteOffset,
 						0x00,
 					])
+					// Update local cache immediately
+					this.feedbackHandler?.updateValue(`${channelType}:${channelNo}:mute`, true)
 					break
 				}
 
@@ -149,6 +258,8 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 						channelNo + midiNoteOffset,
 						0x00,
 					])
+					// Update local cache immediately
+					this.feedbackHandler?.updateValue(`${channelType}:${channelNo}:mute`, false)
 					break
 				}
 
@@ -164,6 +275,8 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 						0x06,
 						level,
 					])
+					// Update local cache immediately
+					this.feedbackHandler?.updateValue(`${channelType}:${channelNo}:fader`, level)
 					break
 				}
 
@@ -179,6 +292,8 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 						0x06,
 						0x7f,
 					])
+					// Update local cache immediately
+					this.feedbackHandler?.updateValue(`${channelType}:${channelNo}:main_assignment`, 0x7f)
 					break
 				}
 
@@ -194,6 +309,8 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 						0x06,
 						0x3f,
 					])
+					// Update local cache immediately
+					this.feedbackHandler?.updateValue(`${channelType}:${channelNo}:main_assignment`, 0x3f)
 					break
 				}
 
@@ -361,7 +478,13 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 					const { sceneNo } = params
 					const sceneBankNo = Math.floor(sceneNo / SCENES_PER_BANK)
 					const sceneNoInBank = sceneNo % SCENES_PER_BANK
-					this.sendMidiToDlive([0xb0 + this.baseMidiChannel, 0x00, sceneBankNo, 0xc0, sceneNoInBank])
+					this.sendMidiToDlive([
+						0xb0 + this.baseMidiChannel,
+						0x00,
+						sceneBankNo,
+						0xc0 + this.baseMidiChannel,
+						sceneNoInBank,
+					])
 					break
 				}
 
@@ -369,7 +492,13 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 					const { recallId } = params
 					const recallBankNo = Math.min(0x0f, Math.floor(recallId / CUE_LISTS_PER_BANK))
 					const recallIdInBank = recallId % CUE_LISTS_PER_BANK
-					this.sendMidiToDlive([0xb0 + this.baseMidiChannel, 0x00, recallBankNo, 0xc0, recallIdInBank])
+					this.sendMidiToDlive([
+						0xb0 + this.baseMidiChannel,
+						0x00,
+						recallBankNo,
+						0xc0 + this.baseMidiChannel,
+						recallIdInBank,
+					])
 					break
 				}
 
@@ -476,8 +605,19 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 				}
 
 				case 'set_ufx_unit_parameter': {
+					// UFX units are assigned an absolute MIDI channel M in the console settings,
+					// independent of the base MIDI channel N (spec: "CC message to UFX MIDI channel M")
 					const { midiChannel, controlNumber, value } = params
-					this.sendMidiToDlive([0xb0 + this.baseMidiChannel + midiChannel, controlNumber, value])
+					this.sendMidiToDlive([0xb0 + midiChannel, controlNumber, value])
+					break
+				}
+
+				case 'midi_transport': {
+					// Standard MIDI Machine Control message: F0 7F <deviceId> 06 <command> F7.
+					// The dLive spec lists MMC transport but gives no dLive-specific format,
+					// so the all-call device id (7F) is used
+					const { transportCommand } = params
+					this.sendMidiToDlive([0xf0, 0x7f, 0x7f, 0x06, transportCommand, 0xf7])
 					break
 				}
 			}
@@ -496,23 +636,41 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 				value: 'This module is for the Allen & Heath dLive mixer',
 			},
 			{
+				type: 'dropdown',
+				id: 'target',
+				label: 'Connect To',
+				width: 6,
+				tooltip:
+					'Some functions are device specific: scene recall is MixRack only; cue list recall and Go/Next/Previous are Surface only',
+				default: 'mixrack',
+				choices: CONNECTION_TARGET_CHOICES,
+			},
+			{
 				type: 'textinput',
 				id: 'host',
 				label: 'Target IP',
-				tooltip: 'Default for surface is 192.168.1.71, default for mixrack is 192.168.1.70',
+				tooltip: 'Default for mixrack is 192.168.1.70, default for surface is 192.168.1.71',
 				width: 6,
 				default: DEFAULT_TARGET_IP,
 				regex: Regex.IP,
+			},
+			{
+				type: 'checkbox',
+				id: 'useCustomPort',
+				label: 'Use Custom MIDI Port',
+				width: 6,
+				tooltip: `When unchecked, the standard unencrypted port is used: ${MIXRACK_MIDI_TCP_PORT} for MixRack, ${SURFACE_MIDI_TCP_PORT} for Surface`,
+				default: false,
 			},
 			{
 				type: 'number',
 				id: 'midiPort',
 				label: 'MIDI Port',
 				width: 6,
-				tooltip: 'Default for surface is 51328, default for mixrack is 51325',
 				default: DEFAULT_MIDI_TCP_PORT,
 				min: MIN_TCP_PORT,
 				max: MAX_TCP_PORT,
+				isVisible: (options) => options.useCustomPort === true,
 			},
 			{
 				type: 'dropdown',
@@ -526,4 +684,26 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 	}
 }
 
-runEntrypoint(ModuleInstance, [])
+/**
+ * Upgrade script for configs saved before the Connect To / custom port fields existed.
+ * Infers the target from the previously configured port and preserves non-standard ports,
+ * so existing connections keep working unchanged.
+ */
+const addConnectionTargetUpgrade: CompanionStaticUpgradeScript<Record<string, unknown>> = (_context, props) => {
+	const config = props.config
+
+	if (!config || config.target !== undefined) {
+		return { updatedConfig: null, updatedActions: [], updatedFeedbacks: [] }
+	}
+
+	const midiPort = config.midiPort as number | undefined
+	const updatedConfig: Record<string, unknown> = {
+		...config,
+		target: midiPort === SURFACE_MIDI_TCP_PORT || midiPort === 51329 ? 'surface' : 'mixrack',
+		useCustomPort: midiPort !== undefined && midiPort !== MIXRACK_MIDI_TCP_PORT && midiPort !== SURFACE_MIDI_TCP_PORT,
+	}
+
+	return { updatedConfig, updatedActions: [], updatedFeedbacks: [] }
+}
+
+runEntrypoint(ModuleInstance, [addConnectionTargetUpgrade])

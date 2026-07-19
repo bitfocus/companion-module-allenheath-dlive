@@ -1,18 +1,18 @@
-import { camelCase, includes } from 'lodash/fp'
+import { CompanionActionDefinitions } from '@companion-module/base'
+import { includes } from 'lodash/fp'
 
 import {
 	CHANNEL_COLOUR_CHOICES,
 	CUE_LIST_COUNT,
 	DCA_COUNT,
-	EQ_FREQUENCY_CHOICES,
 	EQ_MAXIMUM_GAIN,
 	EQ_MAXIMUM_WIDTH,
 	EQ_MINIMUM_GAIN,
 	EQ_MINIMUM_WIDTH,
 	EQ_TYPE_CHOICES,
 	FADER_LEVEL_CHOICES,
-	HPF_FREQUENCY_CHOICES,
 	INPUT_CHANNEL_COUNT,
+	MMC_COMMAND_CHOICES,
 	MUTE_GROUP_COUNT,
 	PREAMP_MAXIMUM_GAIN,
 	PREAMP_MINIMUM_GAIN,
@@ -21,14 +21,20 @@ import {
 	UFX_SCALE_CHOICES,
 } from './constants.js'
 import { ModuleInstance } from './main.js'
-import { getChannelSelectOptions, getSocketSelectOptions, makeDropdownChoices } from './utils/index.js'
+import {
+	camelCaseStringLiteral,
+	dbToFaderMidiValue,
+	EQ_FREQUENCY_CHOICES,
+	faderMidiValueToDb,
+	getChannelSelectOptions,
+	getSocketSelectOptions,
+	HPF_FREQUENCY_CHOICES,
+	makeDropdownChoices,
+} from './utils/index.js'
 import * as validators from './validators/index.js'
 
-const camelCaseStringLiteral = <const S extends string>(snakeCaseString: S): SnakeToCamel<S> =>
-	camelCase(snakeCaseString) as SnakeToCamel<S>
-
 export const UpdateActions = (companionModule: ModuleInstance): void => {
-	companionModule.setActionDefinitions({
+	const actionDefinitions: CompanionActionDefinitions = {
 		mute: {
 			name: 'Mute',
 			description: 'Mute or unmute a channel',
@@ -48,6 +54,45 @@ export const UpdateActions = (companionModule: ModuleInstance): void => {
 					params: {
 						channelType: options.channelType,
 						channelNo: options[camelCaseStringLiteral(options.channelType)],
+					},
+				})
+			},
+		},
+
+		muteToggle: {
+			name: 'Mute Toggle',
+			description: 'Toggle mute state of a channel (requires console feedback)',
+			options: [...getChannelSelectOptions()],
+			callback: async (action) => {
+				const { options } = validators.parseMuteToggleAction(action)
+				const channelType = options.channelType
+				const channelNo = options[camelCaseStringLiteral(options.channelType)]
+				const path = `${channelType}:${channelNo}:mute`
+
+				// Ensure we're subscribed to this parameter (will request current value if not already subscribed)
+				companionModule.feedbackHandler?.ensureSubscription(path)
+
+				// Get current mute state from FeedbackHandler
+				let currentValue = companionModule.feedbackHandler?.getValue(path)
+
+				// If we don't have a current value, request it from the console and wait briefly for the reply
+				if (typeof currentValue !== 'boolean') {
+					companionModule.log('info', `Mute state for ${path} not available. Requesting from console...`)
+					companionModule.requestMuteStatus(channelType, channelNo)
+					currentValue = (await companionModule.feedbackHandler?.waitForValue(path)) ?? null
+				}
+
+				if (typeof currentValue !== 'boolean') {
+					companionModule.log('warn', `No mute state received from the console for ${path}`)
+					return
+				}
+
+				// Toggle the mute state
+				companionModule.processCommand({
+					command: currentValue ? 'mute_off' : 'mute_on',
+					params: {
+						channelType: channelType,
+						channelNo: channelNo,
 					},
 				})
 			},
@@ -75,6 +120,144 @@ export const UpdateActions = (companionModule: ModuleInstance): void => {
 						channelType: options.channelType,
 						channelNo: options[camelCaseStringLiteral(options.channelType)],
 						level: options.level,
+					},
+				})
+			},
+		},
+
+		faderLevelIncrement: {
+			name: 'Fader Level Increment',
+			description: 'Increment the fader level of a channel by a specific dB amount',
+			options: [
+				...getChannelSelectOptions({ exclude: ['mute_group'] }),
+				{
+					type: 'dropdown',
+					label: 'Increment Amount',
+					id: 'increment',
+					default: 1.0,
+					choices: [
+						{ id: 0.1, label: '0.1 dB' },
+						{ id: 0.2, label: '0.2 dB' },
+						{ id: 0.5, label: '0.5 dB' },
+						{ id: 1.0, label: '1.0 dB' },
+						{ id: 1.5, label: '1.5 dB' },
+						{ id: 2.0, label: '2.0 dB' },
+						{ id: 2.5, label: '2.5 dB' },
+						{ id: 3.0, label: '3.0 dB' },
+					],
+				},
+			],
+			callback: async (action) => {
+				const { options } = validators.parseFaderLevelIncrementAction(action)
+				const channelType = options.channelType
+				const channelNo = options[camelCaseStringLiteral(options.channelType)]
+				const path = `${channelType}:${channelNo}:fader`
+
+				// Ensure we're subscribed to this parameter (will request current value if not already subscribed)
+				companionModule.feedbackHandler?.ensureSubscription(path)
+
+				// Get current fader value from FeedbackHandler
+				let currentValue = companionModule.feedbackHandler?.getValue(path)
+
+				// If we don't have a current value, request it from the console and wait briefly for the reply
+				if (typeof currentValue !== 'number') {
+					companionModule.log('info', `Fader level for ${path} not available. Requesting from console...`)
+					companionModule.requestFaderLevel(channelType, channelNo)
+					currentValue = (await companionModule.feedbackHandler?.waitForValue(path)) ?? null
+				}
+
+				if (typeof currentValue !== 'number') {
+					companionModule.log('warn', `No fader level received from the console for ${path}`)
+					return
+				}
+
+				// Convert current MIDI value to dB, add increment, convert back to MIDI
+				let currentDb = faderMidiValueToDb(currentValue)
+				// Handle -Infinity: treat it as the minimum dB value for incrementing
+				if (currentDb === -Infinity) {
+					currentDb = -54
+				}
+				const newDb = currentDb + options.increment
+				let newMidiValue = dbToFaderMidiValue(newDb)
+				// The fader has ~0.5 dB resolution over MIDI (64/127 dB per step), so increments
+				// smaller than one step would round back to the same value - always move at least one step
+				if (newMidiValue <= currentValue) {
+					newMidiValue = Math.min(127, currentValue + 1)
+				}
+
+				companionModule.processCommand({
+					command: 'fader_level',
+					params: {
+						channelType: channelType,
+						channelNo: channelNo,
+						level: newMidiValue,
+					},
+				})
+			},
+		},
+
+		faderLevelDecrement: {
+			name: 'Fader Level Decrement',
+			description: 'Decrement the fader level of a channel by a specific dB amount',
+			options: [
+				...getChannelSelectOptions({ exclude: ['mute_group'] }),
+				{
+					type: 'dropdown',
+					label: 'Decrement Amount',
+					id: 'decrement',
+					default: 1.0,
+					choices: [
+						{ id: 0.1, label: '0.1 dB' },
+						{ id: 0.2, label: '0.2 dB' },
+						{ id: 0.5, label: '0.5 dB' },
+						{ id: 1.0, label: '1.0 dB' },
+						{ id: 1.5, label: '1.5 dB' },
+						{ id: 2.0, label: '2.0 dB' },
+						{ id: 2.5, label: '2.5 dB' },
+						{ id: 3.0, label: '3.0 dB' },
+					],
+				},
+			],
+			callback: async (action) => {
+				const { options } = validators.parseFaderLevelDecrementAction(action)
+				const channelType = options.channelType
+				const channelNo = options[camelCaseStringLiteral(options.channelType)]
+				const path = `${channelType}:${channelNo}:fader`
+
+				// Ensure we're subscribed to this parameter (will request current value if not already subscribed)
+				companionModule.feedbackHandler?.ensureSubscription(path)
+
+				// Get current fader value from FeedbackHandler
+				let currentValue = companionModule.feedbackHandler?.getValue(path)
+
+				// If we don't have a current value, request it from the console and wait briefly for the reply
+				if (typeof currentValue !== 'number') {
+					companionModule.log('info', `Fader level for ${path} not available. Requesting from console...`)
+					companionModule.requestFaderLevel(channelType, channelNo)
+					currentValue = (await companionModule.feedbackHandler?.waitForValue(path)) ?? null
+				}
+
+				if (typeof currentValue !== 'number') {
+					companionModule.log('warn', `No fader level received from the console for ${path}`)
+					return
+				}
+
+				// Convert current MIDI value to dB, subtract decrement, convert back to MIDI
+				const currentDb = faderMidiValueToDb(currentValue)
+				const newDb = currentDb - options.decrement
+				let newMidiValue = dbToFaderMidiValue(newDb)
+				// The fader has ~0.5 dB resolution over MIDI (64/127 dB per step), so decrements
+				// smaller than one step would round back to the same value - always move at least one step
+				if (newMidiValue >= currentValue) {
+					newMidiValue = Math.max(0, currentValue - 1)
+				}
+
+				companionModule.processCommand({
+					command: 'fader_level',
+					params: {
+						channelType: channelType,
+						channelNo: channelNo,
+						level: newMidiValue,
 					},
 				})
 			},
@@ -393,9 +576,10 @@ export const UpdateActions = (companionModule: ModuleInstance): void => {
 					type: 'dropdown',
 					label: 'Scene',
 					id: 'scene',
-					default: 0,
-					choices: makeDropdownChoices('Scene', SCENE_COUNT),
+					default: 8,
+					choices: makeDropdownChoices('Scene', SCENE_COUNT, { startIndex: 8 }),
 					minChoicesForSearch: 0,
+					tooltip: 'Scenes 1-8 are reserved utility scenes and cannot be recalled',
 				},
 			],
 			callback: async (action) => {
@@ -820,5 +1004,43 @@ export const UpdateActions = (companionModule: ModuleInstance): void => {
 				})
 			},
 		},
-	})
+
+		midiTransport: {
+			name: 'MIDI Transport',
+			description: 'Send a MIDI Machine Control (MMC) transport command',
+			options: [
+				{
+					type: 'dropdown',
+					label: 'Command',
+					id: 'transport',
+					default: 0x02,
+					choices: MMC_COMMAND_CHOICES,
+					minChoicesForSearch: 0,
+				},
+			],
+			callback: async (action) => {
+				const { options } = validators.parseSetMidiTransportAction(action)
+				companionModule.processCommand({
+					command: 'midi_transport',
+					params: {
+						transportCommand: options.transport,
+					},
+				})
+			},
+		},
+	}
+
+	// Some functions are device specific in the dLive MIDI protocol:
+	// scene recall is MixRack only; cue list recall and Go/Next/Previous are Surface only.
+	// When no config is available yet, all actions are offered.
+	const target = companionModule.config?.target
+	if (target === 'surface') {
+		delete actionDefinitions.recallScene
+	}
+	if (target === 'mixrack') {
+		delete actionDefinitions.recallCueList
+		delete actionDefinitions.goNextPrevious
+	}
+
+	companionModule.setActionDefinitions(actionDefinitions)
 }

@@ -25,9 +25,13 @@ type UFXKey = 'C' | 'C#' | 'D' | 'D#' | 'E' | 'F' | 'F#' | 'G' | 'G#' | 'A' | 'A
 
 type UFXScale = 'major' | 'minor'
 
+type ConnectionTarget = 'mixrack' | 'surface'
+
 type DLiveModuleConfig = {
 	host: string
 	midiChannel: number
+	target: ConnectionTarget
+	useCustomPort: boolean
 	midiPort: number
 }
 
@@ -57,6 +61,7 @@ type DLiveCommand =
 	| DLiveSetUFXGlobalKeyCommand
 	| DLiveSetUFXGlobalScaleCommand
 	| DLiveSetUFXParameterCommand
+	| DLiveMidiTransportCommand
 
 type DLiveMuteOnCommand = {
 	command: 'mute_on'
@@ -272,6 +277,13 @@ type DLiveSetUFXParameterCommand = {
 		midiChannel: number
 		controlNumber: number
 		value: number
+	}
+}
+
+type DLiveMidiTransportCommand = {
+	command: 'midi_transport'
+	params: {
+		transportCommand: number
 	}
 }
 
