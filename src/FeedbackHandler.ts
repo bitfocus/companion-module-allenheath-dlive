@@ -78,6 +78,11 @@ export class FeedbackHandler {
 	private readonly channelNameSubscriptions: Set<string> = new Set()
 
 	/**
+	 * Pending waiters for values requested from the console (see waitForValue)
+	 */
+	private readonly valueWaiters: Map<DLiveParameterPath, Array<(value: DLiveValueType | null) => void>> = new Map()
+
+	/**
 	 * Buffer for accumulating MIDI messages that may be split across TCP packets
 	 * or use MIDI running status
 	 */
@@ -184,6 +189,67 @@ export class FeedbackHandler {
 		const value = this.valueCache[path]
 		if (typeof value === 'undefined') return null
 		return value
+	}
+
+	/**
+	 * Waits for a value to become available for a parameter path.
+	 * Resolves immediately if a value is already cached, otherwise resolves when the next
+	 * value for the path arrives from the console, or with null on timeout.
+	 * @param path Parameter path
+	 * @param timeoutMs Maximum time to wait for a value
+	 * @returns The value, or null if none arrived within the timeout
+	 */
+	async waitForValue(path: DLiveParameterPath, timeoutMs = 1000): Promise<DLiveValueType | null> {
+		const existing = this.getValue(path)
+		if (existing !== null) {
+			return existing
+		}
+
+		return new Promise((resolve) => {
+			const waiter = (value: DLiveValueType | null): void => {
+				clearTimeout(timeout)
+				resolve(value)
+			}
+			const timeout = setTimeout(() => {
+				this.removeWaiter(path, waiter)
+				resolve(this.getValue(path))
+			}, timeoutMs)
+			// Don't let a pending wait hold the process open
+			timeout.unref?.()
+			const waiters = this.valueWaiters.get(path) ?? []
+			waiters.push(waiter)
+			this.valueWaiters.set(path, waiters)
+		})
+	}
+
+	/**
+	 * Removes a single waiter for a parameter path
+	 */
+	private removeWaiter(path: DLiveParameterPath, waiter: (value: DLiveValueType | null) => void): void {
+		const waiters = this.valueWaiters.get(path)
+		if (!waiters) {
+			return
+		}
+		const remaining = waiters.filter((w) => w !== waiter)
+		if (remaining.length > 0) {
+			this.valueWaiters.set(path, remaining)
+		} else {
+			this.valueWaiters.delete(path)
+		}
+	}
+
+	/**
+	 * Resolves and removes all waiters for a parameter path
+	 */
+	private resolveWaiters(path: DLiveParameterPath, value: DLiveValueType | null): void {
+		const waiters = this.valueWaiters.get(path)
+		if (!waiters) {
+			return
+		}
+		this.valueWaiters.delete(path)
+		for (const waiter of waiters) {
+			waiter(value)
+		}
 	}
 
 	/**
@@ -388,6 +454,8 @@ export class FeedbackHandler {
 		}
 
 		this.valueCache[path] = newValue
+		this.resolveWaiters(path, newValue)
+
 		const updates: string[] = []
 
 		for (const id in this.feedbackMap) {
@@ -950,6 +1018,10 @@ export class FeedbackHandler {
 		}
 		for (const id in this.feedbackMap) {
 			delete this.feedbackMap[id]
+		}
+		// Flush any pending value waiters so callers are not left hanging
+		for (const path of Array.from(this.valueWaiters.keys())) {
+			this.resolveWaiters(path, null)
 		}
 		// Clear channel name subscriptions
 		this.channelNameSubscriptions.clear()

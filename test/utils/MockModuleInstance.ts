@@ -1,9 +1,16 @@
-import { CompanionActionDefinitions, CompanionVariableDefinition, CompanionVariableValues, TCPHelper } from '@companion-module/base'
+import {
+	CompanionActionDefinitions,
+	CompanionFeedbackDefinitions,
+	CompanionVariableDefinition,
+	CompanionVariableValues,
+	TCPHelper,
+} from '@companion-module/base'
 
 import { ModuleInstance } from '../../src/main.js'
 
 export class MockModuleInstance extends ModuleInstance {
 	actionDefinitions: CompanionActionDefinitions = {}
+	feedbackDefinitions: CompanionFeedbackDefinitions = {}
 
 	constructor(internal: unknown) {
 		super(internal)
@@ -12,6 +19,10 @@ export class MockModuleInstance extends ModuleInstance {
 
 	setActionDefinitions(actionDefinitions: CompanionActionDefinitions): void {
 		this.actionDefinitions = actionDefinitions
+	}
+
+	setFeedbackDefinitions(feedbackDefinitions: CompanionFeedbackDefinitions): void {
+		this.feedbackDefinitions = feedbackDefinitions
 	}
 
 	setVariableDefinitions(_variableDefinitions: CompanionVariableDefinition[]): void {

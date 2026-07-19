@@ -172,7 +172,7 @@ function createRotaryKnobPreset(config: ChannelTypeConfig): CompanionButtonPrese
 				feedbackId: 'fader_level',
 				options: {
 					channelType: config.channelType,
-					channelNo: 1,
+					...baseOptions,
 					condition: 'gte',
 					level: 125,
 				},
@@ -185,7 +185,7 @@ function createRotaryKnobPreset(config: ChannelTypeConfig): CompanionButtonPrese
 				feedbackId: 'channel_muted',
 				options: {
 					channelType: config.channelType,
-					channelNo: 1,
+					...baseOptions,
 				},
 				style: {
 					bgcolor: 0xff0000,
@@ -237,7 +237,7 @@ function createMuteButtonPreset(config: ChannelTypeConfig): CompanionButtonPrese
 				feedbackId: 'channel_muted',
 				options: {
 					channelType: config.channelType,
-					channelNo: 1,
+					...baseOptions,
 				},
 				style: {
 					bgcolor: 0xff0000,

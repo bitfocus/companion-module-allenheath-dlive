@@ -1,4 +1,4 @@
-import { camelCase, includes } from 'lodash/fp'
+import { includes } from 'lodash/fp'
 
 import {
 	CHANNEL_COLOUR_CHOICES,
@@ -20,6 +20,7 @@ import {
 } from './constants.js'
 import { ModuleInstance } from './main.js'
 import {
+	camelCaseStringLiteral,
 	dbToFaderMidiValue,
 	EQ_FREQUENCY_CHOICES,
 	faderMidiValueToDb,
@@ -29,9 +30,6 @@ import {
 	makeDropdownChoices,
 } from './utils/index.js'
 import * as validators from './validators/index.js'
-
-const camelCaseStringLiteral = <const S extends string>(snakeCaseString: S): SnakeToCamel<S> =>
-	camelCase(snakeCaseString) as SnakeToCamel<S>
 
 export const UpdateActions = (companionModule: ModuleInstance): void => {
 	companionModule.setActionDefinitions({
@@ -73,12 +71,17 @@ export const UpdateActions = (companionModule: ModuleInstance): void => {
 				companionModule.feedbackHandler?.ensureSubscription(path)
 
 				// Get current mute state from FeedbackHandler
-				const currentValue = companionModule.feedbackHandler?.getValue(path)
+				let currentValue = companionModule.feedbackHandler?.getValue(path)
 
-				// If we don't have a current value, request it from the console
+				// If we don't have a current value, request it from the console and wait briefly for the reply
 				if (typeof currentValue !== 'boolean') {
 					companionModule.log('info', `Mute state for ${path} not available. Requesting from console...`)
 					companionModule.requestMuteStatus(channelType, channelNo)
+					currentValue = (await companionModule.feedbackHandler?.waitForValue(path)) ?? null
+				}
+
+				if (typeof currentValue !== 'boolean') {
+					companionModule.log('warn', `No mute state received from the console for ${path}`)
 					return
 				}
 
@@ -150,12 +153,17 @@ export const UpdateActions = (companionModule: ModuleInstance): void => {
 				companionModule.feedbackHandler?.ensureSubscription(path)
 
 				// Get current fader value from FeedbackHandler
-				const currentValue = companionModule.feedbackHandler?.getValue(path)
+				let currentValue = companionModule.feedbackHandler?.getValue(path)
 
-				// If we don't have a current value, request it from the console
+				// If we don't have a current value, request it from the console and wait briefly for the reply
 				if (typeof currentValue !== 'number') {
 					companionModule.log('info', `Fader level for ${path} not available. Requesting from console...`)
 					companionModule.requestFaderLevel(channelType, channelNo)
+					currentValue = (await companionModule.feedbackHandler?.waitForValue(path)) ?? null
+				}
+
+				if (typeof currentValue !== 'number') {
+					companionModule.log('warn', `No fader level received from the console for ${path}`)
 					return
 				}
 
@@ -209,12 +217,17 @@ export const UpdateActions = (companionModule: ModuleInstance): void => {
 				companionModule.feedbackHandler?.ensureSubscription(path)
 
 				// Get current fader value from FeedbackHandler
-				const currentValue = companionModule.feedbackHandler?.getValue(path)
+				let currentValue = companionModule.feedbackHandler?.getValue(path)
 
-				// If we don't have a current value, request it from the console
+				// If we don't have a current value, request it from the console and wait briefly for the reply
 				if (typeof currentValue !== 'number') {
 					companionModule.log('info', `Fader level for ${path} not available. Requesting from console...`)
 					companionModule.requestFaderLevel(channelType, channelNo)
+					currentValue = (await companionModule.feedbackHandler?.waitForValue(path)) ?? null
+				}
+
+				if (typeof currentValue !== 'number') {
+					companionModule.log('warn', `No fader level received from the console for ${path}`)
 					return
 				}
 

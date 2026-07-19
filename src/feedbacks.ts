@@ -1,13 +1,32 @@
 import type {
-	CompanionBooleanFeedbackDefinition,
 	CompanionFeedbackBooleanEvent,
 	CompanionFeedbackDefinitions,
+	SomeCompanionFeedbackInputField,
 } from '@companion-module/base'
 
+import { FADER_LEVEL_CHOICES } from './constants.js'
 import type { ModuleInstance } from './main.js'
+import { camelCaseStringLiteral, getChannelSelectOptions } from './utils/index.js'
+
+/**
+ * Reads the selected channel type and (0-based) channel number from feedback options
+ * created by getChannelSelectOptions
+ */
+const getChannelFromOptions = (
+	options: CompanionFeedbackBooleanEvent['options'],
+): { channelType: ChannelType; channelNo: number } => {
+	const channelType = options.channelType as ChannelType
+	const channelNo = options[camelCaseStringLiteral(channelType)] as number
+	return { channelType, channelNo }
+}
 
 /**
  * Updates the feedback definitions for the module
+ *
+ * Note: Companion only calls a feedback's subscribe callback when the feedback is first
+ * created, NOT when its options are edited. Each callback therefore re-registers its
+ * mapping via mapFeedback (a no-op when the path is unchanged) so that edits to the
+ * channel options re-subscribe to the correct parameter path.
  * @param instance Module instance
  */
 export function UpdateFeedbacks(instance: ModuleInstance): void {
@@ -20,97 +39,36 @@ export function UpdateFeedbacks(instance: ModuleInstance): void {
 				bgcolor: 0xff0000, // Red background when muted
 				color: 0xffffff,
 			},
-			options: [
-				{
-					type: 'dropdown',
-					label: 'Channel Type',
-					id: 'channelType',
-					default: 'input',
-					choices: [
-						{ id: 'input', label: 'Input' },
-						{ id: 'mono_group', label: 'Mono Group' },
-						{ id: 'stereo_group', label: 'Stereo Group' },
-						{ id: 'mono_aux', label: 'Mono Aux' },
-						{ id: 'stereo_aux', label: 'Stereo Aux' },
-						{ id: 'mono_matrix', label: 'Mono Matrix' },
-						{ id: 'stereo_matrix', label: 'Stereo Matrix' },
-						{ id: 'mono_fx_send', label: 'Mono FX Send' },
-						{ id: 'stereo_fx_send', label: 'Stereo FX Send' },
-						{ id: 'fx_return', label: 'FX Return' },
-						{ id: 'main', label: 'Main' },
-						{ id: 'dca', label: 'DCA' },
-						{ id: 'mute_group', label: 'Mute Group' },
-					],
-				},
-				{
-					type: 'number',
-					label: 'Channel Number',
-					id: 'channelNo',
-					default: 1,
-					min: 1,
-					max: 128,
-				},
-			],
+			options: getChannelSelectOptions() as unknown as SomeCompanionFeedbackInputField[],
 			callback: (feedback: CompanionFeedbackBooleanEvent): boolean => {
-				const channelType = feedback.options.channelType as ChannelType
-				const channelNo = (feedback.options.channelNo as number) - 1 // Convert to 0-based for internal use
-
+				const { channelType, channelNo } = getChannelFromOptions(feedback.options)
 				const path = `${channelType}:${channelNo}:mute`
-				const value = instance.feedbackHandler?.getValue(path)
 
-				return value === true
+				// Keep the mapping in sync with the current options (see UpdateFeedbacks note)
+				instance.feedbackHandler?.mapFeedback(feedback.id, path)
+
+				return instance.feedbackHandler?.getValue(path) === true
 			},
 			subscribe: (feedback: CompanionFeedbackBooleanEvent): void => {
-				const channelType = feedback.options.channelType as ChannelType
-				const channelNo = (feedback.options.channelNo as number) - 1 // Convert to 0-based for internal use
-
-				const path = `${channelType}:${channelNo}:mute`
-				instance.feedbackHandler?.mapFeedback(feedback.id, path)
+				const { channelType, channelNo } = getChannelFromOptions(feedback.options)
+				instance.feedbackHandler?.mapFeedback(feedback.id, `${channelType}:${channelNo}:mute`)
 			},
 			unsubscribe: (feedback: CompanionFeedbackBooleanEvent): void => {
 				// Don't pass path - let FeedbackHandler look it up from stored mapping
-				// This ensures we unsubscribe from the correct path even if options changed
 				instance.feedbackHandler?.removeFeedback(feedback.id)
 			},
-		} as CompanionBooleanFeedbackDefinition,
+		},
 
 		fader_level: {
 			type: 'boolean',
 			name: 'Fader Level',
-			description: 'Indicates if a fader is at or above a specific level',
+			description: 'Indicates if a fader meets a specified level condition',
 			defaultStyle: {
 				bgcolor: 0x00ff00, // Green background when condition is met
 				color: 0x000000,
 			},
 			options: [
-				{
-					type: 'dropdown',
-					label: 'Channel Type',
-					id: 'channelType',
-					default: 'input',
-					choices: [
-						{ id: 'input', label: 'Input' },
-						{ id: 'mono_group', label: 'Mono Group' },
-						{ id: 'stereo_group', label: 'Stereo Group' },
-						{ id: 'mono_aux', label: 'Mono Aux' },
-						{ id: 'stereo_aux', label: 'Stereo Aux' },
-						{ id: 'mono_matrix', label: 'Mono Matrix' },
-						{ id: 'stereo_matrix', label: 'Stereo Matrix' },
-						{ id: 'mono_fx_send', label: 'Mono FX Send' },
-						{ id: 'stereo_fx_send', label: 'Stereo FX Send' },
-						{ id: 'fx_return', label: 'FX Return' },
-						{ id: 'main', label: 'Main' },
-						{ id: 'dca', label: 'DCA' },
-					],
-				},
-				{
-					type: 'number',
-					label: 'Channel Number',
-					id: 'channelNo',
-					default: 1,
-					min: 1,
-					max: 128,
-				},
+				...(getChannelSelectOptions({ exclude: ['mute_group'] }) as unknown as SomeCompanionFeedbackInputField[]),
 				{
 					type: 'dropdown',
 					label: 'Condition',
@@ -125,21 +83,24 @@ export function UpdateFeedbacks(instance: ModuleInstance): void {
 					],
 				},
 				{
-					type: 'number',
-					label: 'Level (0-127)',
+					type: 'dropdown',
+					label: 'Level',
 					id: 'level',
-					default: 100,
-					min: 0,
-					max: 127,
+					default: 107, // 0.0 dB
+					choices: FADER_LEVEL_CHOICES,
+					minChoicesForSearch: 0,
 				},
 			],
 			callback: (feedback: CompanionFeedbackBooleanEvent): boolean => {
-				const channelType = feedback.options.channelType as ChannelType
-				const channelNo = (feedback.options.channelNo as number) - 1 // Convert to 0-based for internal use
+				const { channelType, channelNo } = getChannelFromOptions(feedback.options)
 				const condition = feedback.options.condition as string
 				const targetLevel = feedback.options.level as number
 
 				const path = `${channelType}:${channelNo}:fader`
+
+				// Keep the mapping in sync with the current options (see UpdateFeedbacks note)
+				instance.feedbackHandler?.mapFeedback(feedback.id, path)
+
 				const value = instance.feedbackHandler?.getValue(path)
 
 				if (typeof value !== 'number') {
@@ -162,18 +123,14 @@ export function UpdateFeedbacks(instance: ModuleInstance): void {
 				}
 			},
 			subscribe: (feedback: CompanionFeedbackBooleanEvent): void => {
-				const channelType = feedback.options.channelType as ChannelType
-				const channelNo = (feedback.options.channelNo as number) - 1 // Convert to 0-based for internal use
-
-				const path = `${channelType}:${channelNo}:fader`
-				instance.feedbackHandler?.mapFeedback(feedback.id, path)
+				const { channelType, channelNo } = getChannelFromOptions(feedback.options)
+				instance.feedbackHandler?.mapFeedback(feedback.id, `${channelType}:${channelNo}:fader`)
 			},
 			unsubscribe: (feedback: CompanionFeedbackBooleanEvent): void => {
 				// Don't pass path - let FeedbackHandler look it up from stored mapping
-				// This ensures we unsubscribe from the correct path even if options changed
 				instance.feedbackHandler?.removeFeedback(feedback.id)
 			},
-		} as CompanionBooleanFeedbackDefinition,
+		},
 
 		main_assignment: {
 			type: 'boolean',
@@ -183,52 +140,30 @@ export function UpdateFeedbacks(instance: ModuleInstance): void {
 				bgcolor: 0x0000ff, // Blue background when assigned
 				color: 0xffffff,
 			},
-			options: [
-				{
-					type: 'dropdown',
-					label: 'Channel Type',
-					id: 'channelType',
-					default: 'input',
-					choices: [
-						{ id: 'input', label: 'Input' },
-						{ id: 'mono_group', label: 'Mono Group' },
-						{ id: 'stereo_group', label: 'Stereo Group' },
-						{ id: 'mono_aux', label: 'Mono Aux' },
-						{ id: 'stereo_aux', label: 'Stereo Aux' },
-					],
-				},
-				{
-					type: 'number',
-					label: 'Channel Number',
-					id: 'channelNo',
-					default: 1,
-					min: 1,
-					max: 128,
-				},
-			],
+			options: getChannelSelectOptions({
+				include: ['input', 'mono_group', 'stereo_group', 'fx_return', 'stereo_ufx_return'],
+			}) as unknown as SomeCompanionFeedbackInputField[],
 			callback: (feedback: CompanionFeedbackBooleanEvent): boolean => {
-				const channelType = feedback.options.channelType as ChannelType
-				const channelNo = (feedback.options.channelNo as number) - 1 // Convert to 0-based for internal use
-
+				const { channelType, channelNo } = getChannelFromOptions(feedback.options)
 				const path = `${channelType}:${channelNo}:main_assignment`
+
+				// Keep the mapping in sync with the current options (see UpdateFeedbacks note)
+				instance.feedbackHandler?.mapFeedback(feedback.id, path)
+
 				const value = instance.feedbackHandler?.getValue(path)
 
 				// Assignment value >= 0x40 means assigned
 				return typeof value === 'number' && value >= 0x40
 			},
 			subscribe: (feedback: CompanionFeedbackBooleanEvent): void => {
-				const channelType = feedback.options.channelType as ChannelType
-				const channelNo = (feedback.options.channelNo as number) - 1 // Convert to 0-based for internal use
-
-				const path = `${channelType}:${channelNo}:main_assignment`
-				instance.feedbackHandler?.mapFeedback(feedback.id, path)
+				const { channelType, channelNo } = getChannelFromOptions(feedback.options)
+				instance.feedbackHandler?.mapFeedback(feedback.id, `${channelType}:${channelNo}:main_assignment`)
 			},
 			unsubscribe: (feedback: CompanionFeedbackBooleanEvent): void => {
 				// Don't pass path - let FeedbackHandler look it up from stored mapping
-				// This ensures we unsubscribe from the correct path even if options changed
 				instance.feedbackHandler?.removeFeedback(feedback.id)
 			},
-		} as CompanionBooleanFeedbackDefinition,
+		},
 	}
 
 	instance.setFeedbackDefinitions(feedbacks)

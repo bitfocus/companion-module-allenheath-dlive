@@ -55,12 +55,11 @@ The **Mute Toggle**, **Fader Level Increment**, and **Fader Level Decrement** ac
 1. **Automatically subscribe** to the parameter when first used
 2. **Request the current value** from the console via SysEx "Get" commands if not already cached
 3. **Calculate the new value** based on the current state
-4. **Work immediately** after connection, with the first press requesting the value and subsequent presses performing the action
 
 **How It Works:**
-- On **first press** after connection: The action requests the current value from the console. Press the button again to perform the action.
+- On **first press** after connection: The action requests the current value from the console and waits briefly (up to 1 second) for the reply, then performs the action.
 - On **subsequent presses**: The action performs immediately using the cached value.
-- The console responds to "Get" requests within milliseconds, so the second press typically works immediately.
+- If the console does not reply within the timeout (e.g. the connection is down), the action is skipped and a warning is logged.
 
 **Alternative:** If you configure a feedback for the parameter (e.g., "Channel Muted" or "Fader Level"), the value will already be cached and the first press will work immediately.
 
