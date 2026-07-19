@@ -1,5 +1,19 @@
 import type { CompanionButtonPresetDefinition, CompanionPresetDefinitions } from '@companion-module/base'
 
+import {
+	DCA_COUNT,
+	FX_RETURN_COUNT,
+	INPUT_CHANNEL_COUNT,
+	MAIN_COUNT,
+	MONO_AUX_COUNT,
+	MONO_FX_SEND_COUNT,
+	MONO_GROUP_COUNT,
+	MONO_MATRIX_COUNT,
+	STEREO_AUX_COUNT,
+	STEREO_FX_SEND_COUNT,
+	STEREO_GROUP_COUNT,
+	STEREO_MATRIX_COUNT,
+} from './constants.js'
 import type { ModuleInstance } from './main.js'
 
 /**
@@ -11,6 +25,8 @@ interface ChannelTypeConfig {
 	displayName: string
 	variablePrefix: string
 	category: string
+	/** Number of channels of this type on the console */
+	channelCount: number
 	/** Button background colour, following the dLive default channel colours */
 	bgcolor: number
 	/** Button text colour, chosen for legibility against bgcolor */
@@ -46,6 +62,7 @@ const CHANNEL_TYPES: ChannelTypeConfig[] = [
 		displayName: 'Input',
 		variablePrefix: 'input',
 		category: 'Inputs',
+		channelCount: INPUT_CHANNEL_COUNT,
 		bgcolor: CHANNEL_COLOURS.green,
 		color: BLACK_TEXT,
 	},
@@ -55,6 +72,7 @@ const CHANNEL_TYPES: ChannelTypeConfig[] = [
 		displayName: 'Mono Group',
 		variablePrefix: 'mono_group',
 		category: 'Groups',
+		channelCount: MONO_GROUP_COUNT,
 		bgcolor: CHANNEL_COLOURS.blue,
 		color: WHITE_TEXT,
 	},
@@ -64,6 +82,7 @@ const CHANNEL_TYPES: ChannelTypeConfig[] = [
 		displayName: 'Stereo Group',
 		variablePrefix: 'stereo_group',
 		category: 'Groups',
+		channelCount: STEREO_GROUP_COUNT,
 		bgcolor: CHANNEL_COLOURS.blue,
 		color: WHITE_TEXT,
 	},
@@ -73,6 +92,7 @@ const CHANNEL_TYPES: ChannelTypeConfig[] = [
 		displayName: 'Mono Aux',
 		variablePrefix: 'mono_aux',
 		category: 'Auxes',
+		channelCount: MONO_AUX_COUNT,
 		bgcolor: CHANNEL_COLOURS.lightBlue,
 		color: BLACK_TEXT,
 	},
@@ -82,6 +102,7 @@ const CHANNEL_TYPES: ChannelTypeConfig[] = [
 		displayName: 'Stereo Aux',
 		variablePrefix: 'stereo_aux',
 		category: 'Auxes',
+		channelCount: STEREO_AUX_COUNT,
 		bgcolor: CHANNEL_COLOURS.lightBlue,
 		color: BLACK_TEXT,
 	},
@@ -91,6 +112,7 @@ const CHANNEL_TYPES: ChannelTypeConfig[] = [
 		displayName: 'Mono Matrix',
 		variablePrefix: 'mono_matrix',
 		category: 'Matrices',
+		channelCount: MONO_MATRIX_COUNT,
 		bgcolor: CHANNEL_COLOURS.purple,
 		color: WHITE_TEXT,
 	},
@@ -100,6 +122,7 @@ const CHANNEL_TYPES: ChannelTypeConfig[] = [
 		displayName: 'Stereo Matrix',
 		variablePrefix: 'stereo_matrix',
 		category: 'Matrices',
+		channelCount: STEREO_MATRIX_COUNT,
 		bgcolor: CHANNEL_COLOURS.purple,
 		color: WHITE_TEXT,
 	},
@@ -109,6 +132,7 @@ const CHANNEL_TYPES: ChannelTypeConfig[] = [
 		displayName: 'Mono FX Send',
 		variablePrefix: 'mono_fx_send',
 		category: 'FX',
+		channelCount: MONO_FX_SEND_COUNT,
 		bgcolor: CHANNEL_COLOURS.white,
 		color: BLACK_TEXT,
 	},
@@ -118,6 +142,7 @@ const CHANNEL_TYPES: ChannelTypeConfig[] = [
 		displayName: 'Stereo FX Send',
 		variablePrefix: 'stereo_fx_send',
 		category: 'FX',
+		channelCount: STEREO_FX_SEND_COUNT,
 		bgcolor: CHANNEL_COLOURS.white,
 		color: BLACK_TEXT,
 	},
@@ -127,6 +152,7 @@ const CHANNEL_TYPES: ChannelTypeConfig[] = [
 		displayName: 'FX Return',
 		variablePrefix: 'fx_return',
 		category: 'FX',
+		channelCount: FX_RETURN_COUNT,
 		bgcolor: CHANNEL_COLOURS.white,
 		color: BLACK_TEXT,
 	},
@@ -136,6 +162,7 @@ const CHANNEL_TYPES: ChannelTypeConfig[] = [
 		displayName: 'Main',
 		variablePrefix: 'main',
 		category: 'Mains',
+		channelCount: MAIN_COUNT,
 		bgcolor: CHANNEL_COLOURS.yellow,
 		color: BLACK_TEXT,
 	},
@@ -145,6 +172,7 @@ const CHANNEL_TYPES: ChannelTypeConfig[] = [
 		displayName: 'DCA',
 		variablePrefix: 'dca',
 		category: 'DCAs',
+		channelCount: DCA_COUNT,
 		bgcolor: CHANNEL_COLOURS.red,
 		color: WHITE_TEXT,
 	},
@@ -174,23 +202,30 @@ function createBaseOptions(): Record<string, number> {
 }
 
 /**
- * Creates a rotary knob preset for a specific channel type
+ * Creates a rotary knob preset for a specific channel of a channel type
+ * @param config Channel type configuration
+ * @param channelIndex 0-based channel index (0 = channel 1 on the console)
  */
-function createRotaryKnobPreset(config: ChannelTypeConfig): CompanionButtonPresetDefinition {
-	const baseOptions = createBaseOptions()
+function createRotaryKnobPreset(config: ChannelTypeConfig, channelIndex: number): CompanionButtonPresetDefinition {
+	const channelNum = channelIndex + 1 // 1-based for display and variable names
+	const channelOptions = {
+		channelType: config.channelType,
+		...createBaseOptions(),
+		[config.optionKey]: channelIndex,
+	}
 
 	return {
 		type: 'button',
 		category: `Rotary Knob - ${config.category}`,
-		name: `${config.displayName} Rotary Knob`,
+		name: `${config.displayName} ${channelNum} Rotary Knob`,
 		style: {
-			text: `$(dLive:dlive_${config.variablePrefix}_1_name)\\n$(dLive:dlive_${config.variablePrefix}_1_fader)`,
+			text: `$(dLive:dlive_${config.variablePrefix}_${channelNum}_name)\\n$(dLive:dlive_${config.variablePrefix}_${channelNum}_fader)`,
 			size: 14,
 			color: config.color,
 			bgcolor: config.bgcolor,
 		},
 		previewStyle: {
-			text: `${config.displayName}\\nFader Level`,
+			text: `${config.displayName} ${channelNum}\\nFader Level`,
 			size: 14,
 			color: config.color,
 			bgcolor: config.bgcolor,
@@ -203,10 +238,7 @@ function createRotaryKnobPreset(config: ChannelTypeConfig): CompanionButtonPrese
 				down: [
 					{
 						actionId: 'muteToggle',
-						options: {
-							channelType: config.channelType,
-							...baseOptions,
-						},
+						options: { ...channelOptions },
 					},
 				],
 				up: [],
@@ -214,8 +246,7 @@ function createRotaryKnobPreset(config: ChannelTypeConfig): CompanionButtonPrese
 					{
 						actionId: 'faderLevelDecrement',
 						options: {
-							channelType: config.channelType,
-							...baseOptions,
+							...channelOptions,
 							decrement: 1,
 						},
 					},
@@ -224,8 +255,7 @@ function createRotaryKnobPreset(config: ChannelTypeConfig): CompanionButtonPrese
 					{
 						actionId: 'faderLevelIncrement',
 						options: {
-							channelType: config.channelType,
-							...baseOptions,
+							...channelOptions,
 							increment: 1,
 						},
 					},
@@ -236,8 +266,7 @@ function createRotaryKnobPreset(config: ChannelTypeConfig): CompanionButtonPrese
 			{
 				feedbackId: 'fader_level',
 				options: {
-					channelType: config.channelType,
-					...baseOptions,
+					...channelOptions,
 					condition: 'gte',
 					level: 125,
 				},
@@ -248,10 +277,7 @@ function createRotaryKnobPreset(config: ChannelTypeConfig): CompanionButtonPrese
 			},
 			{
 				feedbackId: 'channel_muted',
-				options: {
-					channelType: config.channelType,
-					...baseOptions,
-				},
+				options: { ...channelOptions },
 				style: {
 					bgcolor: 0xff0000,
 					color: 0xffffff,
@@ -320,9 +346,12 @@ function createMuteButtonPreset(config: ChannelTypeConfig): CompanionButtonPrese
 export function UpdatePresets(instance: ModuleInstance): void {
 	const presets: CompanionPresetDefinitions = {}
 
-	// Generate rotary knob presets for each channel type
+	// Generate a rotary knob preset for every channel of each channel type,
+	// and a mute button preset per channel type
 	for (const config of CHANNEL_TYPES) {
-		presets[`rotary_knob_${config.channelType}`] = createRotaryKnobPreset(config)
+		for (let channelIndex = 0; channelIndex < config.channelCount; channelIndex++) {
+			presets[`rotary_knob_${config.channelType}_${channelIndex + 1}`] = createRotaryKnobPreset(config, channelIndex)
+		}
 		presets[`mute_button_${config.channelType}`] = createMuteButtonPreset(config)
 	}
 
