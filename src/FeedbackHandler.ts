@@ -1,5 +1,13 @@
 import type { CompanionVariableDefinition } from '@companion-module/base'
+
 import type { ModuleInstance } from './main.js'
+import { faderMidiValueToDb } from './utils/index.js'
+
+/**
+ * Maximum bytes to buffer while waiting for a complete MIDI message.
+ * Prevents unbounded growth if a message terminator never arrives (e.g. a corrupt SysEx)
+ */
+const MAX_MIDI_BUFFER_SIZE = 1024
 
 /**
  * Supported value types that can be received from the dLive console
@@ -209,6 +217,11 @@ export class FeedbackHandler {
 			const result = this.extractMidiMessage(this.midiBuffer)
 			if (!result) {
 				// Not enough data for a complete message, wait for more
+				if (this.midiBuffer.length > MAX_MIDI_BUFFER_SIZE) {
+					this.module.log('warn', `Discarding ${this.midiBuffer.length} buffered MIDI bytes with no complete message`)
+					this.midiBuffer = Buffer.alloc(0)
+					this.lastStatusByte = 0
+				}
 				break
 			}
 
@@ -300,7 +313,13 @@ export class FeedbackHandler {
 		} else if (messageType === 0xc0 || messageType === 0xd0) {
 			// Program Change or Channel Pressure - 1 data byte
 			expectedLength = 1
-		} else if (messageType === 0x80 || messageType === 0x90 || messageType === 0xa0 || messageType === 0xb0 || messageType === 0xe0) {
+		} else if (
+			messageType === 0x80 ||
+			messageType === 0x90 ||
+			messageType === 0xa0 ||
+			messageType === 0xb0 ||
+			messageType === 0xe0
+		) {
 			// Note Off, Note On, Aftertouch, Control Change, Pitch Bend - 2 data bytes
 			expectedLength = 2
 
@@ -417,12 +436,10 @@ export class FeedbackHandler {
 	 * @returns dB level as string (e.g., "+10.0", "-15.5", "-inf")
 	 */
 	private midiValueToDb(midiValue: number): string {
-		if (midiValue === 0) {
+		const gain = faderMidiValueToDb(midiValue)
+		if (gain === -Infinity) {
 			return '-inf'
 		}
-
-		// Reverse the formula: gain = (midiValue * 64 / 127) - 54
-		const gain = (midiValue * 64) / 127 - 54
 
 		// Round to 1 decimal place
 		const gainRounded = Math.round(gain * 10) / 10
@@ -538,7 +555,8 @@ export class FeedbackHandler {
 		if (statusByte === 0xf0) {
 			// Check if it's a channel name response: SysEx Header, 0N, 02, CH, Name, F7
 			// SysEx Header is 8 bytes: [0xF0, 0x00, 0x00, 0x1A, 0x50, 0x10, 0x01, 0x00]
-			if (data.length >= 12 &&
+			if (
+				data.length >= 12 &&
 				data[0] === 0xf0 &&
 				data[1] === 0x00 &&
 				data[2] === 0x00 &&
@@ -548,17 +566,17 @@ export class FeedbackHandler {
 				data[6] === 0x01 &&
 				data[7] === 0x00 &&
 				data[9] === 0x02 &&
-				data[data.length - 1] === 0xf7) {
-
+				data[data.length - 1] === 0xf7
+			) {
 				const midiChannelOffset = data[8]
 				const channelNumber = data[10]
 
-				// Extract channel name (ASCII string between CH and F7)
+				// Extract channel name (ASCII string between CH and F7), keeping printable ASCII only
 				const nameBytes = data.subarray(11, data.length - 1)
-				// Remove ALL control characters (ASCII 0-31) including null bytes, newlines, tabs, etc.
-				const channelName = nameBytes
-					.toString('ascii')
-					.replace(/[\x00-\x1F]/g, '') // Remove all ASCII control characters (0-31)
+				const channelName = Array.from(nameBytes)
+					.filter((byte) => byte >= 0x20 && byte <= 0x7e)
+					.map((byte) => String.fromCharCode(byte))
+					.join('')
 					.trim()
 
 				const channelInfo = this.getChannelInfoFromMidi(midiChannelOffset, channelNumber)
@@ -591,7 +609,7 @@ export class FeedbackHandler {
 	 */
 	private getChannelInfoFromMidi(
 		midiChannel: number,
-		noteOrChannel: number
+		noteOrChannel: number,
 	): { channelType: ChannelType; channelNo: number } {
 		const baseMidiChannel = this.module.baseMidiChannel
 		const offset = midiChannel - baseMidiChannel
@@ -821,6 +839,10 @@ export class FeedbackHandler {
 				return `DCA ${channelNum}`
 			case 'mute_group':
 				return `MG ${channelNum}`
+			case 'stereo_ufx_send':
+				return `UFXSnd ${channelNum}`
+			case 'stereo_ufx_return':
+				return `UFXRtn ${channelNum}`
 			default:
 				return `Ch ${channelNum}`
 		}
@@ -840,7 +862,7 @@ export class FeedbackHandler {
 		const displayName = name.trim() || this.getDefaultChannelName(channelType, channelNo)
 
 		this.module.setVariableValues({
-			[variableId]: displayName
+			[variableId]: displayName,
 		})
 
 		this.module.log('debug', `Updated channel name for ${channelType}:${channelNo} to "${displayName}"`)
@@ -857,7 +879,7 @@ export class FeedbackHandler {
 		for (const path in this.subscriptions) {
 			parameterVariables.push({
 				variableId: this.toVariableId(path),
-				name: `dLive: ${path}`
+				name: `dLive: ${path}`,
 			})
 
 			// Track which channel this parameter belongs to
@@ -880,7 +902,7 @@ export class FeedbackHandler {
 					const variableId = `dlive_${channelType}_${channelNo + 1}_name`
 					channelNameVariables.push({
 						variableId,
-						name: `dLive: ${channelType}:${channelNo}:name`
+						name: `dLive: ${channelType}:${channelNo}:name`,
 					})
 				}
 			}

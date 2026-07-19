@@ -1,4 +1,5 @@
 import type { CompanionButtonPresetDefinition, CompanionPresetDefinitions } from '@companion-module/base'
+
 import type { ModuleInstance } from './main.js'
 
 /**
@@ -17,15 +18,69 @@ interface ChannelTypeConfig {
  */
 const CHANNEL_TYPES: ChannelTypeConfig[] = [
 	{ channelType: 'input', optionKey: 'input', displayName: 'Input', variablePrefix: 'input', category: 'Inputs' },
-	{ channelType: 'mono_group', optionKey: 'monoGroup', displayName: 'Mono Group', variablePrefix: 'mono_group', category: 'Groups' },
-	{ channelType: 'stereo_group', optionKey: 'stereoGroup', displayName: 'Stereo Group', variablePrefix: 'stereo_group', category: 'Groups' },
-	{ channelType: 'mono_aux', optionKey: 'monoAux', displayName: 'Mono Aux', variablePrefix: 'mono_aux', category: 'Auxes' },
-	{ channelType: 'stereo_aux', optionKey: 'stereoAux', displayName: 'Stereo Aux', variablePrefix: 'stereo_aux', category: 'Auxes' },
-	{ channelType: 'mono_matrix', optionKey: 'monoMatrix', displayName: 'Mono Matrix', variablePrefix: 'mono_matrix', category: 'Matrices' },
-	{ channelType: 'stereo_matrix', optionKey: 'stereoMatrix', displayName: 'Stereo Matrix', variablePrefix: 'stereo_matrix', category: 'Matrices' },
-	{ channelType: 'mono_fx_send', optionKey: 'monoFxSend', displayName: 'Mono FX Send', variablePrefix: 'mono_fx_send', category: 'FX' },
-	{ channelType: 'stereo_fx_send', optionKey: 'stereoFxSend', displayName: 'Stereo FX Send', variablePrefix: 'stereo_fx_send', category: 'FX' },
-	{ channelType: 'fx_return', optionKey: 'fxReturn', displayName: 'FX Return', variablePrefix: 'fx_return', category: 'FX' },
+	{
+		channelType: 'mono_group',
+		optionKey: 'monoGroup',
+		displayName: 'Mono Group',
+		variablePrefix: 'mono_group',
+		category: 'Groups',
+	},
+	{
+		channelType: 'stereo_group',
+		optionKey: 'stereoGroup',
+		displayName: 'Stereo Group',
+		variablePrefix: 'stereo_group',
+		category: 'Groups',
+	},
+	{
+		channelType: 'mono_aux',
+		optionKey: 'monoAux',
+		displayName: 'Mono Aux',
+		variablePrefix: 'mono_aux',
+		category: 'Auxes',
+	},
+	{
+		channelType: 'stereo_aux',
+		optionKey: 'stereoAux',
+		displayName: 'Stereo Aux',
+		variablePrefix: 'stereo_aux',
+		category: 'Auxes',
+	},
+	{
+		channelType: 'mono_matrix',
+		optionKey: 'monoMatrix',
+		displayName: 'Mono Matrix',
+		variablePrefix: 'mono_matrix',
+		category: 'Matrices',
+	},
+	{
+		channelType: 'stereo_matrix',
+		optionKey: 'stereoMatrix',
+		displayName: 'Stereo Matrix',
+		variablePrefix: 'stereo_matrix',
+		category: 'Matrices',
+	},
+	{
+		channelType: 'mono_fx_send',
+		optionKey: 'monoFxSend',
+		displayName: 'Mono FX Send',
+		variablePrefix: 'mono_fx_send',
+		category: 'FX',
+	},
+	{
+		channelType: 'stereo_fx_send',
+		optionKey: 'stereoFxSend',
+		displayName: 'Stereo FX Send',
+		variablePrefix: 'stereo_fx_send',
+		category: 'FX',
+	},
+	{
+		channelType: 'fx_return',
+		optionKey: 'fxReturn',
+		displayName: 'FX Return',
+		variablePrefix: 'fx_return',
+		category: 'FX',
+	},
 	{ channelType: 'main', optionKey: 'main', displayName: 'Main', variablePrefix: 'main', category: 'Mains' },
 	{ channelType: 'dca', optionKey: 'dca', displayName: 'DCA', variablePrefix: 'dca', category: 'DCAs' },
 ]

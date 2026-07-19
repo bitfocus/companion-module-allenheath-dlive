@@ -85,4 +85,33 @@ describe('setUfxUnitParameter action', () => {
 			expect(sendMidiToDliveSpy).toHaveBeenCalledWith([0xb0 + (midiChannel - 1), 0, controlValue])
 		})
 	})
+
+	describe('with a non-default base MIDI channel', () => {
+		beforeAll(() => {
+			moduleInstance.config = { host: '192.168.1.70', midiPort: 51325, midiChannel: 4 }
+		})
+
+		afterAll(() => {
+			moduleInstance.config = undefined
+		})
+
+		it('sends on the absolute UFX MIDI channel, ignoring the base MIDI channel', () => {
+			const setUfxUnitParameterAction: SetUfxUnitParameterAction = {
+				...baseAction,
+				options: {
+					midiChannel: 16,
+					controlNumber: 10,
+					controlValue: 20,
+				},
+			}
+
+			void moduleInstance.actionDefinitions.setUfxUnitParameter?.callback?.(
+				setUfxUnitParameterAction as CompanionActionEvent,
+				{} as CompanionActionContext,
+			)
+
+			expect(sendMidiToDliveSpy).toHaveBeenCalledTimes(1)
+			expect(sendMidiToDliveSpy).toHaveBeenCalledWith([0xb0 + 15, 10, 20])
+		})
+	})
 })

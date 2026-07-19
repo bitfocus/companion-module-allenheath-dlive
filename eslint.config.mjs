@@ -21,4 +21,11 @@ export default [
 			'@typescript-eslint/no-explicit-any': 'error',
 		},
 	},
+	{
+		// Jest mock functions are safe to reference unbound, e.g. expect(mock.method)
+		files: ['test/**/*.ts', '**/__tests__/**/*.ts'],
+		rules: {
+			'@typescript-eslint/unbound-method': 'off',
+		},
+	},
 ]

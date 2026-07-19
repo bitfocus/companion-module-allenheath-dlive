@@ -66,4 +66,33 @@ describe('recallScene action', () => {
 		expect(sendMidiToDliveSpy).toHaveBeenCalledTimes(1)
 		expect(sendMidiToDliveSpy).toHaveBeenCalledWith([0xb0, 0, sceneBankNo, 0xc0, sceneNoInBank])
 	})
+
+	describe('with a non-default base MIDI channel', () => {
+		const baseMidiChannel = 4
+
+		beforeAll(() => {
+			moduleInstance.config = { host: '192.168.1.70', midiPort: 51325, midiChannel: baseMidiChannel }
+		})
+
+		afterAll(() => {
+			moduleInstance.config = undefined
+		})
+
+		it('applies the base MIDI channel to both the bank select and program change bytes', () => {
+			const recallSceneAction: RecallSceneAction = {
+				...baseAction,
+				options: {
+					scene: 8,
+				},
+			}
+
+			void moduleInstance.actionDefinitions.recallScene?.callback?.(
+				recallSceneAction as CompanionActionEvent,
+				{} as CompanionActionContext,
+			)
+
+			expect(sendMidiToDliveSpy).toHaveBeenCalledTimes(1)
+			expect(sendMidiToDliveSpy).toHaveBeenCalledWith([0xb0 + baseMidiChannel, 0, 0, 0xc0 + baseMidiChannel, 8])
+		})
+	})
 })

@@ -4,14 +4,12 @@ import {
 	CHANNEL_COLOUR_CHOICES,
 	CUE_LIST_COUNT,
 	DCA_COUNT,
-	EQ_FREQUENCY_CHOICES,
 	EQ_MAXIMUM_GAIN,
 	EQ_MAXIMUM_WIDTH,
 	EQ_MINIMUM_GAIN,
 	EQ_MINIMUM_WIDTH,
 	EQ_TYPE_CHOICES,
 	FADER_LEVEL_CHOICES,
-	HPF_FREQUENCY_CHOICES,
 	INPUT_CHANNEL_COUNT,
 	MUTE_GROUP_COUNT,
 	PREAMP_MAXIMUM_GAIN,
@@ -21,41 +19,19 @@ import {
 	UFX_SCALE_CHOICES,
 } from './constants.js'
 import { ModuleInstance } from './main.js'
-import { getChannelSelectOptions, getSocketSelectOptions, makeDropdownChoices } from './utils/index.js'
+import {
+	dbToFaderMidiValue,
+	EQ_FREQUENCY_CHOICES,
+	faderMidiValueToDb,
+	getChannelSelectOptions,
+	getSocketSelectOptions,
+	HPF_FREQUENCY_CHOICES,
+	makeDropdownChoices,
+} from './utils/index.js'
 import * as validators from './validators/index.js'
 
 const camelCaseStringLiteral = <const S extends string>(snakeCaseString: S): SnakeToCamel<S> =>
 	camelCase(snakeCaseString) as SnakeToCamel<S>
-
-/**
- * Converts a MIDI fader value (0-127) to dB level
- * Based on dLive MIDI protocol: [(Gain+54)/64]*7F
- * @param midiValue MIDI value (0-127)
- * @returns dB level as number
- */
-const midiValueToDb = (midiValue: number): number => {
-	if (midiValue === 0) {
-		return -Infinity
-	}
-	// Reverse the formula: gain = (midiValue * 64 / 127) - 54
-	return (midiValue * 64) / 127 - 54
-}
-
-/**
- * Converts a dB level to MIDI fader value (0-127)
- * Based on dLive MIDI protocol: [(Gain+54)/64]*7F
- * @param db dB level
- * @returns MIDI value (0-127), clamped to valid range
- */
-const dbToMidiValue = (db: number): number => {
-	if (db === -Infinity || db <= -54) {
-		return 0
-	}
-	// Formula: midiValue = [(db + 54) / 64] * 127
-	const midiValue = Math.round(((db + 54) / 64) * 127)
-	// Clamp to valid MIDI range
-	return Math.max(0, Math.min(127, midiValue))
-}
 
 export const UpdateActions = (companionModule: ModuleInstance): void => {
 	companionModule.setActionDefinitions({
@@ -184,13 +160,13 @@ export const UpdateActions = (companionModule: ModuleInstance): void => {
 				}
 
 				// Convert current MIDI value to dB, add increment, convert back to MIDI
-				let currentDb = midiValueToDb(currentValue)
+				let currentDb = faderMidiValueToDb(currentValue)
 				// Handle -Infinity: treat it as the minimum dB value for incrementing
 				if (currentDb === -Infinity) {
 					currentDb = -54
 				}
 				const newDb = currentDb + options.increment
-				const newMidiValue = dbToMidiValue(newDb)
+				const newMidiValue = dbToFaderMidiValue(newDb)
 
 				companionModule.processCommand({
 					command: 'fader_level',
@@ -243,9 +219,9 @@ export const UpdateActions = (companionModule: ModuleInstance): void => {
 				}
 
 				// Convert current MIDI value to dB, subtract decrement, convert back to MIDI
-				const currentDb = midiValueToDb(currentValue)
+				const currentDb = faderMidiValueToDb(currentValue)
 				const newDb = currentDb - options.decrement
-				const newMidiValue = dbToMidiValue(newDb)
+				const newMidiValue = dbToFaderMidiValue(newDb)
 
 				companionModule.processCommand({
 					command: 'fader_level',
@@ -571,7 +547,7 @@ export const UpdateActions = (companionModule: ModuleInstance): void => {
 					type: 'dropdown',
 					label: 'Scene',
 					id: 'scene',
-					default: 0,
+					default: 8,
 					choices: makeDropdownChoices('Scene', SCENE_COUNT, { startIndex: 8 }),
 					minChoicesForSearch: 0,
 					tooltip: 'Scenes 1-8 are reserved utility scenes and cannot be recalled',

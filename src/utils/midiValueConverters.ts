@@ -100,6 +100,28 @@ export const preampGainToMidiValue = (gain: number): number =>
 export const eqGainToMidiValue = (gain: number): number => dbGainToMidiValue(gain, EQ_MINIMUM_GAIN, EQ_MAXIMUM_GAIN)
 
 /**
+ * Converts a fader MIDI value (0-127) to a dB level
+ * Based on dLive MIDI protocol: [(Gain+54)/64]*7F
+ * @param midiValue MIDI value (0-127)
+ * @returns dB level (-Infinity for MIDI value 0)
+ */
+export const faderMidiValueToDb = (midiValue: number): number =>
+	midiValue === 0 ? -Infinity : (midiValue * 64) / 127 - 54
+
+/**
+ * Converts a dB level to a fader MIDI value (0-127)
+ * Based on dLive MIDI protocol: [(Gain+54)/64]*7F
+ * @param db dB level
+ * @returns MIDI value (0-127), clamped to valid range
+ */
+export const dbToFaderMidiValue = (db: number): number => {
+	if (db === -Infinity || db <= -54) {
+		return 0
+	}
+	return Math.max(0, Math.min(127, Math.round(((db + 54) / 64) * 127)))
+}
+
+/**
  * Helper function to convert a MIDI value to a frequency between 0-20000 Hz
  * @param midiValue MIDI value between 0-127
  * @returns A frequency in Hz

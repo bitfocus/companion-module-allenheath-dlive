@@ -1,10 +1,14 @@
-import { InstanceBase, Regex, runEntrypoint, SomeCompanionConfigField, TCPHelper } from '@companion-module/base'
+import {
+	InstanceBase,
+	InstanceStatus,
+	Regex,
+	runEntrypoint,
+	SomeCompanionConfigField,
+	TCPHelper,
+} from '@companion-module/base'
 import { indexOf } from 'lodash/fp'
 
 import { UpdateActions } from './actions.js'
-import { FeedbackHandler } from './FeedbackHandler.js'
-import { UpdateFeedbacks } from './feedbacks.js'
-import { UpdatePresets } from './presets.js'
 import {
 	CUE_LISTS_PER_BANK,
 	DEFAULT_MIDI_CHANNEL,
@@ -19,6 +23,9 @@ import {
 	SOCKET_MIDI_NOTE_OFFSETS,
 	SYSEX_HEADER,
 } from './constants.js'
+import { FeedbackHandler } from './FeedbackHandler.js'
+import { UpdateFeedbacks } from './feedbacks.js'
+import { UpdatePresets } from './presets.js'
 import {
 	eqGainToMidiValue,
 	eqWidthToMidiValue,
@@ -47,6 +54,8 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 			this.config = parseDliveModuleConfig(initialConfig)
 		} catch (error) {
 			this.log('error', `Unable to parse config object during init method: ${JSON.stringify(error)}`)
+			this.updateStatus(InstanceStatus.BadConfig)
+			return
 		}
 
 		// Initialize feedback handler
@@ -64,6 +73,8 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 			this.config = parseDliveModuleConfig(updatedConfig)
 		} catch (error) {
 			this.log('error', `Unable to parse config object during configUpdated method: ${JSON.stringify(error)}`)
+			this.updateStatus(InstanceStatus.BadConfig)
+			return
 		}
 		this.initialiseMidi()
 	}
@@ -119,11 +130,9 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 			return
 		}
 		this.log('debug', `Sending MIDI: ${midiMessage}`)
-		try {
-			void this.midiSocket.send(Buffer.from(midiMessage))
-		} catch (error) {
-			this.log('error', `Error sending MIDI: ${JSON.stringify(error)}`)
-		}
+		this.midiSocket.send(Buffer.from(midiMessage)).catch((error: Error) => {
+			this.log('error', `Error sending MIDI: ${error.message}`)
+		})
 	}
 
 	/**
@@ -446,7 +455,13 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 					const { sceneNo } = params
 					const sceneBankNo = Math.floor(sceneNo / SCENES_PER_BANK)
 					const sceneNoInBank = sceneNo % SCENES_PER_BANK
-					this.sendMidiToDlive([0xb0 + this.baseMidiChannel, 0x00, sceneBankNo, 0xc0, sceneNoInBank])
+					this.sendMidiToDlive([
+						0xb0 + this.baseMidiChannel,
+						0x00,
+						sceneBankNo,
+						0xc0 + this.baseMidiChannel,
+						sceneNoInBank,
+					])
 					break
 				}
 
@@ -454,7 +469,13 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 					const { recallId } = params
 					const recallBankNo = Math.min(0x0f, Math.floor(recallId / CUE_LISTS_PER_BANK))
 					const recallIdInBank = recallId % CUE_LISTS_PER_BANK
-					this.sendMidiToDlive([0xb0 + this.baseMidiChannel, 0x00, recallBankNo, 0xc0, recallIdInBank])
+					this.sendMidiToDlive([
+						0xb0 + this.baseMidiChannel,
+						0x00,
+						recallBankNo,
+						0xc0 + this.baseMidiChannel,
+						recallIdInBank,
+					])
 					break
 				}
 
@@ -561,8 +582,10 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 				}
 
 				case 'set_ufx_unit_parameter': {
+					// UFX units are assigned an absolute MIDI channel M in the console settings,
+					// independent of the base MIDI channel N (spec: "CC message to UFX MIDI channel M")
 					const { midiChannel, controlNumber, value } = params
-					this.sendMidiToDlive([0xb0 + this.baseMidiChannel + midiChannel, controlNumber, value])
+					this.sendMidiToDlive([0xb0 + midiChannel, controlNumber, value])
 					break
 				}
 			}

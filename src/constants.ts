@@ -1,8 +1,6 @@
 import { DropdownChoice } from '@companion-module/base'
 import { times } from 'lodash/fp'
 
-import { midiValueToEqFrequency, midiValueToHpfFrequency } from './utils/index.js'
-
 // Companion config
 export const DEFAULT_MIDI_TCP_PORT = 51328
 export const MIN_TCP_PORT = 1
@@ -29,7 +27,8 @@ export const DCA_COUNT = 24
 export const MUTE_GROUP_COUNT = 8
 
 export const SCENE_COUNT = 500
-export const CUE_LIST_COUNT = 1999
+// The dLive has 2000 user assignable cue recall IDs (0-1999) across 16 banks
+export const CUE_LIST_COUNT = 2000
 export const SCENES_PER_BANK = 128
 export const CUE_LISTS_PER_BANK = 128
 
@@ -197,18 +196,6 @@ export const EQ_TYPE_CHOICES: { label: string; id: EqType }[] = [
 	{ label: 'Low Pass', id: 'low_pass' },
 	{ label: 'High Pass', id: 'high_pass' },
 ]
-
-export const EQ_FREQUENCY_CHOICES: { label: string; id: number }[] = times((n) => {
-	const frequency = midiValueToEqFrequency(n)
-	const label = frequency < 1000 ? `${frequency} Hz` : `${(frequency / 1000).toFixed(2)} kHz`
-	return { label, id: n }
-})(128)
-
-export const HPF_FREQUENCY_CHOICES: { label: string; id: number }[] = times((n) => {
-	const frequency = midiValueToHpfFrequency(n)
-	const label = frequency < 1000 ? `${frequency} Hz` : `${(frequency / 1000).toFixed(2)} kHz`
-	return { label, id: n }
-})(128)
 
 export const EQ_PARAMETER_MIDI_VALUES_FOR_BANDS: Record<number, EqMidiParameters> = {
 	0: { type: 0x1a, frequency: 0x1b, width: 0x1c, gain: 0x1d },

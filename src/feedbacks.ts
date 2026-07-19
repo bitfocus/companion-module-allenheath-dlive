@@ -1,8 +1,9 @@
 import type {
 	CompanionBooleanFeedbackDefinition,
-	CompanionFeedbackDefinitions,
 	CompanionFeedbackBooleanEvent,
+	CompanionFeedbackDefinitions,
 } from '@companion-module/base'
+
 import type { ModuleInstance } from './main.js'
 
 /**

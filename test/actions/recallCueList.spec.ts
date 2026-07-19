@@ -43,7 +43,7 @@ describe('recallCueList action', () => {
 		0, // First cue list,
 		CUE_LISTS_PER_BANK - 1, // Last cue list in first bank (127)
 		CUE_LISTS_PER_BANK, // First cue list in second bank (128)
-		CUE_LIST_COUNT - 1, // Last cue list overall (1998)
+		CUE_LIST_COUNT - 1, // Last cue list overall (1999, bank 15 / 0x0F, id in bank 79 / 0x4F)
 	]
 
 	it.each(testCueLists)('cue list %s', (recallId) => {
@@ -64,5 +64,34 @@ describe('recallCueList action', () => {
 
 		expect(sendMidiToDliveSpy).toHaveBeenCalledTimes(1)
 		expect(sendMidiToDliveSpy).toHaveBeenCalledWith([0xb0, 0, recallBankNo, 0xc0, recallIdInBank])
+	})
+
+	describe('with a non-default base MIDI channel', () => {
+		const baseMidiChannel = 4
+
+		beforeAll(() => {
+			moduleInstance.config = { host: '192.168.1.70', midiPort: 51325, midiChannel: baseMidiChannel }
+		})
+
+		afterAll(() => {
+			moduleInstance.config = undefined
+		})
+
+		it('applies the base MIDI channel to both the bank select and program change bytes', () => {
+			const recallCueListAction: RecallCueListAction = {
+				...baseAction,
+				options: {
+					recallId: 0,
+				},
+			}
+
+			void moduleInstance.actionDefinitions.recallCueList?.callback?.(
+				recallCueListAction as CompanionActionEvent,
+				{} as CompanionActionContext,
+			)
+
+			expect(sendMidiToDliveSpy).toHaveBeenCalledTimes(1)
+			expect(sendMidiToDliveSpy).toHaveBeenCalledWith([0xb0 + baseMidiChannel, 0, 0, 0xc0 + baseMidiChannel, 0])
+		})
 	})
 })
