@@ -1,23 +1,51 @@
-import type {
-	CompanionFeedbackBooleanEvent,
-	CompanionFeedbackDefinitions,
-	SomeCompanionFeedbackInputField,
-} from '@companion-module/base'
+import type { CompanionFeedbackBooleanEvent, CompanionFeedbackDefinitions } from '@companion-module/base'
 
-import { FADER_LEVEL_CHOICES } from './constants.js'
+import { FADER_LEVEL_CHOICES, FADER_LEVEL_CONDITION_CHOICES } from './constants.js'
+import type { DLiveParameter, DLiveParameterPath } from './FeedbackHandler.js'
 import type { ModuleInstance } from './main.js'
 import { camelCaseStringLiteral, getChannelSelectOptions } from './utils/index.js'
+import * as validators from './validators/index.js'
 
 /**
- * Reads the selected channel type and (0-based) channel number from feedback options
- * created by getChannelSelectOptions
+ * Channel options created by getChannelSelectOptions, shared by all feedbacks
  */
-const getChannelFromOptions = (
-	options: CompanionFeedbackBooleanEvent['options'],
-): { channelType: ChannelType; channelNo: number } => {
-	const channelType = options.channelType as ChannelType
-	const channelNo = options[camelCaseStringLiteral(channelType)] as number
-	return { channelType, channelNo }
+type ChannelOptions = validators.ChannelMutedFeedback['options']
+
+/**
+ * Builds the parameter path for a feedback from its validated channel options
+ * @param options Validated feedback options
+ * @param parameter Parameter the feedback reports on
+ * @returns Parameter path
+ */
+const getParameterPath = (options: ChannelOptions, parameter: DLiveParameter): DLiveParameterPath => ({
+	channelType: options.channelType,
+	channelNo: options[camelCaseStringLiteral(options.channelType)],
+	parameter,
+})
+
+/**
+ * Validates a feedback event, logging an error if it is not in the expected shape.
+ * Companion only writes errors thrown from feedback callbacks to the console, so they are
+ * logged to the module log here instead
+ * @param instance Module instance
+ * @param feedback Feedback event from Companion
+ * @param parse Validator for the feedback
+ * @returns The validated feedback, or null if it is invalid
+ */
+const validateFeedback = <T>(
+	instance: ModuleInstance,
+	feedback: CompanionFeedbackBooleanEvent,
+	parse: (feedback: CompanionFeedbackBooleanEvent) => T,
+): T | null => {
+	try {
+		return parse(feedback)
+	} catch (error) {
+		instance.log(
+			'error',
+			`Invalid ${feedback.feedbackId} feedback ${feedback.id}: ${error instanceof Error ? error.message : String(error)}`,
+		)
+		return null
+	}
 }
 
 /**
@@ -39,10 +67,13 @@ export function UpdateFeedbacks(instance: ModuleInstance): void {
 				bgcolor: 0xff0000, // Red background when muted
 				color: 0xffffff,
 			},
-			options: getChannelSelectOptions() as unknown as SomeCompanionFeedbackInputField[],
+			options: getChannelSelectOptions(),
 			callback: (feedback: CompanionFeedbackBooleanEvent): boolean => {
-				const { channelType, channelNo } = getChannelFromOptions(feedback.options)
-				const path = `${channelType}:${channelNo}:mute`
+				const parsed = validateFeedback(instance, feedback, validators.parseChannelMutedFeedback)
+				if (!parsed) {
+					return false
+				}
+				const path = getParameterPath(parsed.options, 'mute')
 
 				// Keep the mapping in sync with the current options (see UpdateFeedbacks note)
 				instance.feedbackHandler?.mapFeedback(feedback.id, path)
@@ -50,8 +81,10 @@ export function UpdateFeedbacks(instance: ModuleInstance): void {
 				return instance.feedbackHandler?.getValue(path) === true
 			},
 			subscribe: (feedback: CompanionFeedbackBooleanEvent): void => {
-				const { channelType, channelNo } = getChannelFromOptions(feedback.options)
-				instance.feedbackHandler?.mapFeedback(feedback.id, `${channelType}:${channelNo}:mute`)
+				const parsed = validateFeedback(instance, feedback, validators.parseChannelMutedFeedback)
+				if (parsed) {
+					instance.feedbackHandler?.mapFeedback(feedback.id, getParameterPath(parsed.options, 'mute'))
+				}
 			},
 			unsubscribe: (feedback: CompanionFeedbackBooleanEvent): void => {
 				// Don't pass path - let FeedbackHandler look it up from stored mapping
@@ -68,19 +101,13 @@ export function UpdateFeedbacks(instance: ModuleInstance): void {
 				color: 0x000000,
 			},
 			options: [
-				...(getChannelSelectOptions({ exclude: ['mute_group'] }) as unknown as SomeCompanionFeedbackInputField[]),
+				...getChannelSelectOptions({ exclude: ['mute_group'] }),
 				{
 					type: 'dropdown',
 					label: 'Condition',
 					id: 'condition',
 					default: 'gte',
-					choices: [
-						{ id: 'eq', label: 'Equal to' },
-						{ id: 'gte', label: 'Greater than or equal to' },
-						{ id: 'lte', label: 'Less than or equal to' },
-						{ id: 'gt', label: 'Greater than' },
-						{ id: 'lt', label: 'Less than' },
-					],
+					choices: FADER_LEVEL_CONDITION_CHOICES,
 				},
 				{
 					type: 'dropdown',
@@ -92,11 +119,12 @@ export function UpdateFeedbacks(instance: ModuleInstance): void {
 				},
 			],
 			callback: (feedback: CompanionFeedbackBooleanEvent): boolean => {
-				const { channelType, channelNo } = getChannelFromOptions(feedback.options)
-				const condition = feedback.options.condition as string
-				const targetLevel = feedback.options.level as number
-
-				const path = `${channelType}:${channelNo}:fader`
+				const parsed = validateFeedback(instance, feedback, validators.parseFaderLevelFeedback)
+				if (!parsed) {
+					return false
+				}
+				const { condition, level: targetLevel } = parsed.options
+				const path = getParameterPath(parsed.options, 'fader')
 
 				// Keep the mapping in sync with the current options (see UpdateFeedbacks note)
 				instance.feedbackHandler?.mapFeedback(feedback.id, path)
@@ -118,13 +146,13 @@ export function UpdateFeedbacks(instance: ModuleInstance): void {
 						return value > targetLevel
 					case 'lt':
 						return value < targetLevel
-					default:
-						return false
 				}
 			},
 			subscribe: (feedback: CompanionFeedbackBooleanEvent): void => {
-				const { channelType, channelNo } = getChannelFromOptions(feedback.options)
-				instance.feedbackHandler?.mapFeedback(feedback.id, `${channelType}:${channelNo}:fader`)
+				const parsed = validateFeedback(instance, feedback, validators.parseFaderLevelFeedback)
+				if (parsed) {
+					instance.feedbackHandler?.mapFeedback(feedback.id, getParameterPath(parsed.options, 'fader'))
+				}
 			},
 			unsubscribe: (feedback: CompanionFeedbackBooleanEvent): void => {
 				// Don't pass path - let FeedbackHandler look it up from stored mapping
@@ -142,10 +170,13 @@ export function UpdateFeedbacks(instance: ModuleInstance): void {
 			},
 			options: getChannelSelectOptions({
 				include: ['input', 'mono_group', 'stereo_group', 'fx_return', 'stereo_ufx_return'],
-			}) as unknown as SomeCompanionFeedbackInputField[],
+			}),
 			callback: (feedback: CompanionFeedbackBooleanEvent): boolean => {
-				const { channelType, channelNo } = getChannelFromOptions(feedback.options)
-				const path = `${channelType}:${channelNo}:main_assignment`
+				const parsed = validateFeedback(instance, feedback, validators.parseMainAssignmentFeedback)
+				if (!parsed) {
+					return false
+				}
+				const path = getParameterPath(parsed.options, 'main_assignment')
 
 				// Keep the mapping in sync with the current options (see UpdateFeedbacks note)
 				instance.feedbackHandler?.mapFeedback(feedback.id, path)
@@ -156,8 +187,10 @@ export function UpdateFeedbacks(instance: ModuleInstance): void {
 				return typeof value === 'number' && value >= 0x40
 			},
 			subscribe: (feedback: CompanionFeedbackBooleanEvent): void => {
-				const { channelType, channelNo } = getChannelFromOptions(feedback.options)
-				instance.feedbackHandler?.mapFeedback(feedback.id, `${channelType}:${channelNo}:main_assignment`)
+				const parsed = validateFeedback(instance, feedback, validators.parseMainAssignmentFeedback)
+				if (parsed) {
+					instance.feedbackHandler?.mapFeedback(feedback.id, getParameterPath(parsed.options, 'main_assignment'))
+				}
 			},
 			unsubscribe: (feedback: CompanionFeedbackBooleanEvent): void => {
 				// Don't pass path - let FeedbackHandler look it up from stored mapping

@@ -15,15 +15,31 @@ const MAX_MIDI_BUFFER_SIZE = 1024
 export type DLiveValueType = number | boolean | string
 
 /**
+ * Channel parameters that can be subscribed to on the dLive console
+ */
+export type DLiveParameter = 'mute' | 'fader' | 'main_assignment'
+
+/**
  * Represents a parameter path for subscribing to dLive values
- * Format: "channelType:channelNo:parameter"
  * Note: channelNo is 0-based internally (0 = channel 1 on console)
+ */
+export interface DLiveParameterPath {
+	channelType: ChannelType
+	channelNo: number
+	parameter: DLiveParameter
+}
+
+/**
+ * Generates the key used to index values and subscriptions for a parameter path
+ * Format: "channelType:channelNo:parameter"
  * Examples:
  *   - "input:0:mute" (input channel 1 mute status)
  *   - "input:0:fader" (input channel 1 fader level)
  *   - "main:0:fader" (main mix 1 fader level)
+ * @param path Parameter path
+ * @returns Key for the parameter path
  */
-export type DLiveParameterPath = string
+export const pathKey = (path: DLiveParameterPath): string => `${path.channelType}:${path.channelNo}:${path.parameter}`
 
 /**
  * Feedback entry mapping feedback ID to parameter path
@@ -36,6 +52,7 @@ interface FeedbackEntry {
  * Subscription entry tracking usage count for a parameter
  */
 interface SubscriptionEntry {
+	path: DLiveParameterPath
 	usages: number
 }
 
@@ -46,7 +63,7 @@ export interface ParsedMidiMessage {
 	type: 'note' | 'control_change' | 'program_change' | 'sysex' | 'unknown'
 	channelType?: ChannelType
 	channelNo?: number
-	parameter?: string
+	parameter?: DLiveParameter | 'name' | 'scene' | 'unknown'
 	value?: DLiveValueType
 	raw: Buffer
 }
@@ -66,10 +83,10 @@ export class FeedbackHandler {
 	private readonly feedbackMap: Record<string, FeedbackEntry> = {}
 
 	/**
-	 * Holds a local cache of all subscribed values mapped to their path
+	 * Holds a local cache of all subscribed values mapped to their path key (see pathKey)
 	 */
-	private readonly valueCache: Record<DLiveParameterPath, DLiveValueType> = {}
-	private readonly subscriptions: Record<DLiveParameterPath, SubscriptionEntry> = {}
+	private readonly valueCache: Record<string, DLiveValueType> = {}
+	private readonly subscriptions: Record<string, SubscriptionEntry> = {}
 
 	/**
 	 * Tracks which channels we've requested names for (to avoid duplicate requests)
@@ -78,9 +95,9 @@ export class FeedbackHandler {
 	private readonly channelNameSubscriptions: Set<string> = new Set()
 
 	/**
-	 * Pending waiters for values requested from the console (see waitForValue)
+	 * Pending waiters for values requested from the console, mapped to their path key (see waitForValue)
 	 */
-	private readonly valueWaiters: Map<DLiveParameterPath, Array<(value: DLiveValueType | null) => void>> = new Map()
+	private readonly valueWaiters: Map<string, Array<(value: DLiveValueType | null) => void>> = new Map()
 
 	/**
 	 * Buffer for accumulating MIDI messages that may be split across TCP packets
@@ -108,21 +125,22 @@ export class FeedbackHandler {
 	 * @param path Parameter path to subscribe to
 	 */
 	mapFeedback(id: string, path: DLiveParameterPath): void {
+		const key = pathKey(path)
 		const existingFeedback = this.feedbackMap[id]
 
 		// If feedback already exists with a different path, unsubscribe from old path first
-		if (existingFeedback && existingFeedback.path !== path) {
-			this.module.log('debug', `Feedback ${id} changing from ${existingFeedback.path} to ${path}`)
+		if (existingFeedback && pathKey(existingFeedback.path) !== key) {
+			this.module.log('debug', `Feedback ${id} changing from ${pathKey(existingFeedback.path)} to ${key}`)
 			this.removeFeedback(id, existingFeedback.path)
 		} else if (this.feedbackMap[id]) {
 			// Already subscribed to the same path
-			this.module.log('debug', `Feedback ${id} already subscribed to ${path}`)
+			this.module.log('debug', `Feedback ${id} already subscribed to ${key}`)
 			return
 		}
 
 		this.feedbackMap[id] = { path }
 
-		const subscription = this.subscriptions[path]
+		const subscription = this.subscriptions[key]
 		if (subscription && subscription.usages > 0) {
 			subscription.usages++
 			return
@@ -131,7 +149,7 @@ export class FeedbackHandler {
 		// Not yet subscribed - register the subscription, then request the value from the console.
 		// The subscription must be registered before subscribeToParameter so that the variable
 		// definitions it creates include this parameter.
-		this.subscriptions[path] = { usages: 1 }
+		this.subscriptions[key] = { path, usages: 1 }
 		this.subscribeToParameter(path)
 	}
 
@@ -149,16 +167,17 @@ export class FeedbackHandler {
 			return
 		}
 
+		const key = pathKey(actualPath)
 		delete this.feedbackMap[id]
-		const subscription = this.subscriptions[actualPath]
+		const subscription = this.subscriptions[key]
 		if (!subscription) {
-			this.module.log('warn', `No subscription found for ${actualPath} but expected one`)
+			this.module.log('warn', `No subscription found for ${key} but expected one`)
 			return
 		}
 
 		subscription.usages--
 		if (subscription.usages === 0) {
-			delete this.subscriptions[actualPath]
+			delete this.subscriptions[key]
 			this.unsubscribeFromParameter(actualPath)
 			this.updateVariables()
 		}
@@ -170,14 +189,15 @@ export class FeedbackHandler {
 	 * @param path Parameter path to ensure subscription for
 	 */
 	ensureSubscription(path: DLiveParameterPath): void {
-		const subscription = this.subscriptions[path]
+		const key = pathKey(path)
+		const subscription = this.subscriptions[key]
 		if (subscription && subscription.usages > 0) {
 			// Already subscribed
 			return
 		}
 
 		// Create internal subscription (using special ID prefix to distinguish from user feedbacks)
-		const internalId = `__action_${path}`
+		const internalId = `__action_${key}`
 		this.mapFeedback(internalId, path)
 	}
 
@@ -187,7 +207,7 @@ export class FeedbackHandler {
 	 * @returns The cached value or null if not available
 	 */
 	getValue(path: DLiveParameterPath): DLiveValueType | null {
-		const value = this.valueCache[path]
+		const value = this.valueCache[pathKey(path)]
 		if (typeof value === 'undefined') return null
 		return value
 	}
@@ -206,48 +226,51 @@ export class FeedbackHandler {
 			return existing
 		}
 
+		const key = pathKey(path)
 		return new Promise((resolve) => {
 			const waiter = (value: DLiveValueType | null): void => {
 				clearTimeout(timeout)
 				resolve(value)
 			}
 			const timeout = setTimeout(() => {
-				this.removeWaiter(path, waiter)
+				this.removeWaiter(key, waiter)
 				resolve(this.getValue(path))
 			}, timeoutMs)
 			// Don't let a pending wait hold the process open
 			timeout.unref?.()
-			const waiters = this.valueWaiters.get(path) ?? []
+			const waiters = this.valueWaiters.get(key) ?? []
 			waiters.push(waiter)
-			this.valueWaiters.set(path, waiters)
+			this.valueWaiters.set(key, waiters)
 		})
 	}
 
 	/**
 	 * Removes a single waiter for a parameter path
+	 * @param key Parameter path key (see pathKey)
 	 */
-	private removeWaiter(path: DLiveParameterPath, waiter: (value: DLiveValueType | null) => void): void {
-		const waiters = this.valueWaiters.get(path)
+	private removeWaiter(key: string, waiter: (value: DLiveValueType | null) => void): void {
+		const waiters = this.valueWaiters.get(key)
 		if (!waiters) {
 			return
 		}
 		const remaining = waiters.filter((w) => w !== waiter)
 		if (remaining.length > 0) {
-			this.valueWaiters.set(path, remaining)
+			this.valueWaiters.set(key, remaining)
 		} else {
-			this.valueWaiters.delete(path)
+			this.valueWaiters.delete(key)
 		}
 	}
 
 	/**
 	 * Resolves and removes all waiters for a parameter path
+	 * @param key Parameter path key (see pathKey)
 	 */
-	private resolveWaiters(path: DLiveParameterPath, value: DLiveValueType | null): void {
-		const waiters = this.valueWaiters.get(path)
+	private resolveWaiters(key: string, value: DLiveValueType | null): void {
+		const waiters = this.valueWaiters.get(key)
 		if (!waiters) {
 			return
 		}
-		this.valueWaiters.delete(path)
+		this.valueWaiters.delete(key)
 		for (const waiter of waiters) {
 			waiter(value)
 		}
@@ -261,7 +284,7 @@ export class FeedbackHandler {
 	 */
 	updateValue(path: DLiveParameterPath, value: DLiveValueType): void {
 		// Only update if we're subscribed to this parameter
-		if (!this.subscriptions[path]) {
+		if (!this.subscriptions[pathKey(path)]) {
 			return
 		}
 
@@ -325,8 +348,8 @@ export class FeedbackHandler {
 			}
 
 			// Only process if we're subscribed to this parameter
-			if (!this.subscriptions[path]) {
-				this.module.log('debug', `Received value for unsubscribed parameter: ${path}`)
+			if (!this.subscriptions[pathKey(path)]) {
+				this.module.log('debug', `Received value for unsubscribed parameter: ${pathKey(path)}`)
 				continue
 			}
 
@@ -454,20 +477,22 @@ export class FeedbackHandler {
 	 * @param newValue New value
 	 */
 	private notifyFeedbacks(path: DLiveParameterPath, newValue: DLiveValueType): void {
+		const key = pathKey(path)
+
 		// Check if value actually changed
-		const oldValue = this.valueCache[path]
+		const oldValue = this.valueCache[key]
 		if (oldValue === newValue) {
 			return
 		}
 
-		this.valueCache[path] = newValue
-		this.resolveWaiters(path, newValue)
+		this.valueCache[key] = newValue
+		this.resolveWaiters(key, newValue)
 
 		const updates: string[] = []
 
 		for (const id in this.feedbackMap) {
 			const entry = this.feedbackMap[id]
-			if (entry.path !== path) {
+			if (pathKey(entry.path) !== key) {
 				continue
 			}
 			updates.push(id)
@@ -494,7 +519,7 @@ export class FeedbackHandler {
 	 */
 	private formatVariableValue(path: DLiveParameterPath, value: DLiveValueType): string | number | boolean {
 		// Check if this is a fader parameter
-		if (path.endsWith(':fader')) {
+		if (path.parameter === 'fader') {
 			if (typeof value === 'number') {
 				return this.midiValueToDb(value)
 			}
@@ -588,7 +613,7 @@ export class FeedbackHandler {
 
 				const channelInfo = this.getChannelInfoFromMidi(midiChannel, channel)
 
-				let paramName = 'unknown'
+				let paramName: ParsedMidiMessage['parameter'] = 'unknown'
 				if (parameter === 0x17) {
 					paramName = 'fader'
 				} else if (parameter === 0x18) {
@@ -759,11 +784,16 @@ export class FeedbackHandler {
 	 * @returns Parameter path or null if cannot be constructed
 	 */
 	private constructParameterPath(parsed: ParsedMidiMessage): DLiveParameterPath | null {
-		if (!parsed.channelType || parsed.channelNo === undefined || !parsed.parameter) {
+		const { channelType, channelNo, parameter } = parsed
+		if (
+			!channelType ||
+			channelNo === undefined ||
+			(parameter !== 'mute' && parameter !== 'fader' && parameter !== 'main_assignment')
+		) {
 			return null
 		}
 
-		return `${parsed.channelType}:${parsed.channelNo}:${parsed.parameter}`
+		return { channelType, channelNo, parameter }
 	}
 
 	/**
@@ -773,22 +803,7 @@ export class FeedbackHandler {
 	 * @param path Parameter path
 	 */
 	private subscribeToParameter(path: DLiveParameterPath): void {
-		// Parse the path
-		const parts = path.split(':')
-		if (parts.length !== 3) {
-			this.module.log('warn', `Invalid parameter path format: ${path}`)
-			return
-		}
-
-		const channelType = parts[0] as ChannelType
-		const channelNoStr = parts[1]
-		const channelNo = parseInt(channelNoStr, 10)
-		const parameter = parts[2]
-
-		if (isNaN(channelNo)) {
-			this.module.log('warn', `Invalid channel number in path: ${path}`)
-			return
-		}
+		const { channelType, channelNo, parameter } = path
 
 		// Track the channel name subscription so the name variable gets defined too
 		const channelKey = `${channelType}:${channelNo}`
@@ -809,7 +824,7 @@ export class FeedbackHandler {
 		// Request the current value from the console
 		this.requestParameterValue(channelType, channelNo, parameter)
 
-		this.module.log('debug', `Subscribed to parameter: ${path}`)
+		this.module.log('debug', `Subscribed to parameter: ${pathKey(path)}`)
 	}
 
 	/**
@@ -818,7 +833,7 @@ export class FeedbackHandler {
 	 * @param channelNo Channel number (0-based)
 	 * @param parameter Parameter name (mute, fader, main_assignment)
 	 */
-	private requestParameterValue(channelType: ChannelType, channelNo: number, parameter: string): void {
+	private requestParameterValue(channelType: ChannelType, channelNo: number, parameter: DLiveParameter): void {
 		switch (parameter) {
 			case 'mute':
 				this.module.requestMuteStatus(channelType, channelNo)
@@ -840,15 +855,8 @@ export class FeedbackHandler {
 	requestAllSubscribedValues(): void {
 		this.module.log('info', 'Requesting current values for all subscribed parameters')
 
-		for (const path in this.subscriptions) {
-			const parts = path.split(':')
-			if (parts.length !== 3) continue
-
-			const channelType = parts[0] as ChannelType
-			const channelNo = parseInt(parts[1], 10)
-			const parameter = parts[2]
-
-			if (isNaN(channelNo)) continue
+		for (const { path } of Object.values(this.subscriptions)) {
+			const { channelType, channelNo, parameter } = path
 
 			// Request the parameter value
 			this.requestParameterValue(channelType, channelNo, parameter)
@@ -864,8 +872,8 @@ export class FeedbackHandler {
 	 */
 	private unsubscribeFromParameter(path: DLiveParameterPath): void {
 		// Remove from cache
-		delete this.valueCache[path]
-		this.module.log('debug', `Unsubscribed from parameter: ${path}`)
+		delete this.valueCache[pathKey(path)]
+		this.module.log('debug', `Unsubscribed from parameter: ${pathKey(path)}`)
 	}
 
 	/**
@@ -940,18 +948,14 @@ export class FeedbackHandler {
 		const parameterVariables: CompanionVariableDefinition[] = []
 		const channelsInUse = new Set<string>()
 
-		for (const path in this.subscriptions) {
+		for (const [key, { path }] of Object.entries(this.subscriptions)) {
 			parameterVariables.push({
 				variableId: this.toVariableId(path),
-				name: `dLive: ${path}`,
+				name: `dLive: ${key}`,
 			})
 
 			// Track which channel this parameter belongs to
-			const parts = path.split(':')
-			if (parts.length === 3) {
-				const channelKey = `${parts[0]}:${parts[1]}`
-				channelsInUse.add(channelKey)
-			}
+			channelsInUse.add(`${path.channelType}:${path.channelNo}`)
 		}
 
 		// Only include channel names for channels that have active parameter subscriptions
@@ -986,38 +990,30 @@ export class FeedbackHandler {
 	/**
 	 * Converts a parameter path to a variable ID
 	 * Uses 1-based channel numbering to match dLive console and user expectations
-	 * @param path Parameter path (e.g., "input:0:mute")
+	 * @param path Parameter path (e.g., input channel 1 mute)
 	 * @returns Variable ID (e.g., "dlive_input_1_mute")
 	 */
 	private toVariableId(path: DLiveParameterPath): string {
-		const parts = path.split(':')
-		if (parts.length === 3) {
-			const channelType = parts[0]
-			const channelNo = parseInt(parts[1], 10)
-			const parameter = parts[2]
-			// Convert 0-based internal channel number to 1-based for variable name
-			return `dlive_${channelType}_${channelNo + 1}_${parameter}`
-		}
-		// Fallback for unexpected format
-		return 'dlive_' + path.replaceAll(':', '_')
+		// Convert 0-based internal channel number to 1-based for variable name
+		return `dlive_${path.channelType}_${path.channelNo + 1}_${path.parameter}`
 	}
 
 	/**
 	 * Clears all subscriptions and cached values
 	 */
 	clear(): void {
-		for (const path in this.subscriptions) {
-			delete this.subscriptions[path]
+		for (const key in this.subscriptions) {
+			delete this.subscriptions[key]
 		}
-		for (const path in this.valueCache) {
-			delete this.valueCache[path]
+		for (const key in this.valueCache) {
+			delete this.valueCache[key]
 		}
 		for (const id in this.feedbackMap) {
 			delete this.feedbackMap[id]
 		}
 		// Flush any pending value waiters so callers are not left hanging
-		for (const path of Array.from(this.valueWaiters.keys())) {
-			this.resolveWaiters(path, null)
+		for (const key of Array.from(this.valueWaiters.keys())) {
+			this.resolveWaiters(key, null)
 		}
 		// Clear channel name subscriptions
 		this.channelNameSubscriptions.clear()

@@ -1,6 +1,7 @@
 import type { CompanionBooleanFeedbackDefinition, CompanionFeedbackBooleanEvent } from '@companion-module/base'
 import { noop } from 'lodash/fp'
 
+import { INPUT_CHANNEL_COUNT } from '../src/constants.js'
 import { FeedbackHandler } from '../src/FeedbackHandler.js'
 import { UpdateFeedbacks } from '../src/feedbacks.js'
 import { ModuleInstance } from '../src/main.js'
@@ -20,12 +21,14 @@ describe('feedbacks', () => {
 	let moduleInstance: MockModuleInstance
 	let feedbackHandler: FeedbackHandler
 	let checkFeedbacksByIdSpy: jest.SpyInstance
+	let logSpy: jest.SpyInstance
 
 	beforeAll(() => {
 		moduleInstance = new MockModuleInstance({})
 		feedbackHandler = new FeedbackHandler(moduleInstance as unknown as ModuleInstance)
 		moduleInstance.feedbackHandler = feedbackHandler
 		checkFeedbacksByIdSpy = jest.spyOn(moduleInstance, 'checkFeedbacksById')
+		logSpy = jest.spyOn(moduleInstance, 'log')
 		UpdateFeedbacks(moduleInstance as unknown as ModuleInstance)
 	})
 
@@ -101,5 +104,35 @@ describe('feedbacks', () => {
 		// but the button state did not, because the feedback was still mapped to input 1)
 		expect(checkFeedbacksByIdSpy).toHaveBeenCalledWith('feedback1')
 		expect(definition.callback(editedEvent, {} as never)).toBe(true)
+	})
+
+	it('logs an error and reports false when the feedback options are invalid', () => {
+		const definition = getMuteDefinition()
+		const event = makeMuteEvent({ input: INPUT_CHANNEL_COUNT }) // Out of range (0-based)
+
+		void definition.subscribe?.(event, {} as never)
+		expect(definition.callback(event, {} as never)).toBe(false)
+
+		expect(logSpy).toHaveBeenCalledWith('error', expect.stringContaining('Invalid channel_muted feedback feedback1'))
+		expect(feedbackHandler['feedbackMap']).toEqual({})
+	})
+
+	it('reports the fader level condition for the subscribed channel', () => {
+		const definition = moduleInstance.feedbackDefinitions.fader_level as CompanionBooleanFeedbackDefinition
+		const event = {
+			type: 'boolean',
+			id: 'feedback1',
+			feedbackId: 'fader_level',
+			controlId: 'control1',
+			options: { channelType: 'input', ...baseChannelOptions, condition: 'gte', level: 107 },
+		} as unknown as CompanionFeedbackBooleanEvent
+
+		void definition.subscribe?.(event, {} as never)
+
+		// Console reports input 1 fader at 0 dB (MIDI 107), then below it (MIDI 100)
+		feedbackHandler.processMidiData(Buffer.from([0xb0, 0x63, 0x00, 0x62, 0x17, 0x06, 0x6b]))
+		expect(definition.callback(event, {} as never)).toBe(true)
+		feedbackHandler.processMidiData(Buffer.from([0xb0, 0x63, 0x00, 0x62, 0x17, 0x06, 0x64]))
+		expect(definition.callback(event, {} as never)).toBe(false)
 	})
 })

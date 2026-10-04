@@ -245,7 +245,7 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 						0x00,
 					])
 					// Update local cache immediately
-					this.feedbackHandler?.updateValue(`${channelType}:${channelNo}:mute`, true)
+					this.feedbackHandler?.updateValue({ channelType, channelNo, parameter: 'mute' }, true)
 					break
 				}
 
@@ -260,7 +260,7 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 						0x00,
 					])
 					// Update local cache immediately
-					this.feedbackHandler?.updateValue(`${channelType}:${channelNo}:mute`, false)
+					this.feedbackHandler?.updateValue({ channelType, channelNo, parameter: 'mute' }, false)
 					break
 				}
 
@@ -277,7 +277,7 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 						level,
 					])
 					// Update local cache immediately
-					this.feedbackHandler?.updateValue(`${channelType}:${channelNo}:fader`, level)
+					this.feedbackHandler?.updateValue({ channelType, channelNo, parameter: 'fader' }, level)
 					break
 				}
 
@@ -294,7 +294,7 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 						0x7f,
 					])
 					// Update local cache immediately
-					this.feedbackHandler?.updateValue(`${channelType}:${channelNo}:main_assignment`, 0x7f)
+					this.feedbackHandler?.updateValue({ channelType, channelNo, parameter: 'main_assignment' }, 0x7f)
 					break
 				}
 
@@ -311,7 +311,7 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 						0x3f,
 					])
 					// Update local cache immediately
-					this.feedbackHandler?.updateValue(`${channelType}:${channelNo}:main_assignment`, 0x3f)
+					this.feedbackHandler?.updateValue({ channelType, channelNo, parameter: 'main_assignment' }, 0x3f)
 					break
 				}
 

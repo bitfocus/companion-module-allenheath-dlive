@@ -1,4 +1,4 @@
-import { CompanionActionEvent } from '@companion-module/base'
+import { CompanionActionEvent, CompanionFeedbackBooleanEvent } from '@companion-module/base'
 import { z } from 'zod'
 
 import {
@@ -12,6 +12,7 @@ import {
 	EQ_MINIMUM_GAIN,
 	EQ_MINIMUM_WIDTH,
 	EQ_TYPES,
+	FADER_LEVEL_CONDITIONS,
 	FX_RETURN_COUNT,
 	INPUT_CHANNEL_COUNT,
 	MAIN_COUNT,
@@ -60,6 +61,16 @@ const CompanionActionEventBaseSchema = z.object({
 	id: z.string(),
 	controlId: z.string(),
 	actionId: z.string(),
+	options: z.record(z.string(), InputValueSchema.optional()),
+})
+
+/**
+ * Schema representing the CompanionFeedbackBooleanEvent interface, the base for all feedbacks coming from Companion
+ */
+const CompanionFeedbackEventBaseSchema = z.object({
+	id: z.string(),
+	controlId: z.string(),
+	feedbackId: z.string(),
 	options: z.record(z.string(), InputValueSchema.optional()),
 })
 
@@ -400,6 +411,30 @@ const SetMidiTransportActionSchema = CompanionActionEventBaseSchema.extend({
 })
 
 /**
+ * Schemas representing the options for each specific feedback
+ */
+
+const ChannelMutedFeedbackSchema = CompanionFeedbackEventBaseSchema.extend({
+	options: z.object({
+		...channelOptions,
+	}),
+})
+
+const FaderLevelFeedbackSchema = CompanionFeedbackEventBaseSchema.extend({
+	options: z.object({
+		...channelOptions,
+		condition: z.enum(FADER_LEVEL_CONDITIONS),
+		level: z.number().int().min(0).max(127),
+	}),
+})
+
+const MainAssignmentFeedbackSchema = CompanionFeedbackEventBaseSchema.extend({
+	options: z.object({
+		...channelOptions,
+	}),
+})
+
+/**
  * Schema representing the DLive module configuration.
  * target and useCustomPort default for configs saved before they existed
  * (an upgrade script in main.ts maps old configs based on their port).
@@ -461,6 +496,12 @@ export type SetUfxGlobalScaleAction = z.infer<typeof SetUfxGlobalScaleActionSche
 export type SetUfxUnitParameterAction = z.infer<typeof SetUfxUnitParameterActionSchema>
 
 export type SetMidiTransportAction = z.infer<typeof SetMidiTransportActionSchema>
+
+export type ChannelMutedFeedback = z.infer<typeof ChannelMutedFeedbackSchema>
+
+export type FaderLevelFeedback = z.infer<typeof FaderLevelFeedbackSchema>
+
+export type MainAssignmentFeedback = z.infer<typeof MainAssignmentFeedbackSchema>
 
 export const parseMuteAction = (action: CompanionActionEvent): MuteAction => MuteActionSchema.parse(action)
 
@@ -535,6 +576,15 @@ export const parseSetUfxUnitParameterAction = (action: CompanionActionEvent): Se
 
 export const parseSetMidiTransportAction = (action: CompanionActionEvent): SetMidiTransportAction =>
 	SetMidiTransportActionSchema.parse(action)
+
+export const parseChannelMutedFeedback = (feedback: CompanionFeedbackBooleanEvent): ChannelMutedFeedback =>
+	ChannelMutedFeedbackSchema.parse(feedback)
+
+export const parseFaderLevelFeedback = (feedback: CompanionFeedbackBooleanEvent): FaderLevelFeedback =>
+	FaderLevelFeedbackSchema.parse(feedback)
+
+export const parseMainAssignmentFeedback = (feedback: CompanionFeedbackBooleanEvent): MainAssignmentFeedback =>
+	MainAssignmentFeedbackSchema.parse(feedback)
 
 export const parseDliveModuleConfig = (config: Record<string, unknown>): DLiveModuleConfig =>
 	DliveModuleConfigSchema.parse(config)

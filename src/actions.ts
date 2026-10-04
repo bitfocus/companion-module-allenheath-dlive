@@ -20,6 +20,7 @@ import {
 	UFX_KEY_CHOICES,
 	UFX_SCALE_CHOICES,
 } from './constants.js'
+import { type DLiveParameterPath, pathKey } from './FeedbackHandler.js'
 import { ModuleInstance } from './main.js'
 import {
 	camelCaseStringLiteral,
@@ -67,7 +68,7 @@ export const UpdateActions = (companionModule: ModuleInstance): void => {
 				const { options } = validators.parseMuteToggleAction(action)
 				const channelType = options.channelType
 				const channelNo = options[camelCaseStringLiteral(options.channelType)]
-				const path = `${channelType}:${channelNo}:mute`
+				const path: DLiveParameterPath = { channelType, channelNo, parameter: 'mute' }
 
 				// Ensure we're subscribed to this parameter (will request current value if not already subscribed)
 				companionModule.feedbackHandler?.ensureSubscription(path)
@@ -77,13 +78,13 @@ export const UpdateActions = (companionModule: ModuleInstance): void => {
 
 				// If we don't have a current value, request it from the console and wait briefly for the reply
 				if (typeof currentValue !== 'boolean') {
-					companionModule.log('info', `Mute state for ${path} not available. Requesting from console...`)
+					companionModule.log('info', `Mute state for ${pathKey(path)} not available. Requesting from console...`)
 					companionModule.requestMuteStatus(channelType, channelNo)
 					currentValue = (await companionModule.feedbackHandler?.waitForValue(path)) ?? null
 				}
 
 				if (typeof currentValue !== 'boolean') {
-					companionModule.log('warn', `No mute state received from the console for ${path}`)
+					companionModule.log('warn', `No mute state received from the console for ${pathKey(path)}`)
 					return
 				}
 
@@ -151,7 +152,7 @@ export const UpdateActions = (companionModule: ModuleInstance): void => {
 				const { options } = validators.parseFaderLevelIncrementAction(action)
 				const channelType = options.channelType
 				const channelNo = options[camelCaseStringLiteral(options.channelType)]
-				const path = `${channelType}:${channelNo}:fader`
+				const path: DLiveParameterPath = { channelType, channelNo, parameter: 'fader' }
 
 				// Ensure we're subscribed to this parameter (will request current value if not already subscribed)
 				companionModule.feedbackHandler?.ensureSubscription(path)
@@ -161,13 +162,13 @@ export const UpdateActions = (companionModule: ModuleInstance): void => {
 
 				// If we don't have a current value, request it from the console and wait briefly for the reply
 				if (typeof currentValue !== 'number') {
-					companionModule.log('info', `Fader level for ${path} not available. Requesting from console...`)
+					companionModule.log('info', `Fader level for ${pathKey(path)} not available. Requesting from console...`)
 					companionModule.requestFaderLevel(channelType, channelNo)
 					currentValue = (await companionModule.feedbackHandler?.waitForValue(path)) ?? null
 				}
 
 				if (typeof currentValue !== 'number') {
-					companionModule.log('warn', `No fader level received from the console for ${path}`)
+					companionModule.log('warn', `No fader level received from the console for ${pathKey(path)}`)
 					return
 				}
 
@@ -222,7 +223,7 @@ export const UpdateActions = (companionModule: ModuleInstance): void => {
 				const { options } = validators.parseFaderLevelDecrementAction(action)
 				const channelType = options.channelType
 				const channelNo = options[camelCaseStringLiteral(options.channelType)]
-				const path = `${channelType}:${channelNo}:fader`
+				const path: DLiveParameterPath = { channelType, channelNo, parameter: 'fader' }
 
 				// Ensure we're subscribed to this parameter (will request current value if not already subscribed)
 				companionModule.feedbackHandler?.ensureSubscription(path)
@@ -232,13 +233,13 @@ export const UpdateActions = (companionModule: ModuleInstance): void => {
 
 				// If we don't have a current value, request it from the console and wait briefly for the reply
 				if (typeof currentValue !== 'number') {
-					companionModule.log('info', `Fader level for ${path} not available. Requesting from console...`)
+					companionModule.log('info', `Fader level for ${pathKey(path)} not available. Requesting from console...`)
 					companionModule.requestFaderLevel(channelType, channelNo)
 					currentValue = (await companionModule.feedbackHandler?.waitForValue(path)) ?? null
 				}
 
 				if (typeof currentValue !== 'number') {
-					companionModule.log('warn', `No fader level received from the console for ${path}`)
+					companionModule.log('warn', `No fader level received from the console for ${pathKey(path)}`)
 					return
 				}
 

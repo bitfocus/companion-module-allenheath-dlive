@@ -222,6 +222,16 @@ export const FADER_LEVEL_CHOICES: DropdownChoice[] = times((index: number) => {
 	return { label: `${levelString} dB`, id }
 })(FADER_STEP_COUNT)
 
+export const FADER_LEVEL_CONDITIONS: Readonly<FaderLevelCondition[]> = ['eq', 'gte', 'lte', 'gt', 'lt']
+
+export const FADER_LEVEL_CONDITION_CHOICES: { label: string; id: FaderLevelCondition }[] = [
+	{ label: 'Equal to', id: 'eq' },
+	{ label: 'Greater than or equal to', id: 'gte' },
+	{ label: 'Less than or equal to', id: 'lte' },
+	{ label: 'Greater than', id: 'gt' },
+	{ label: 'Less than', id: 'lt' },
+]
+
 // High Pass Filter Control
 export const HPF_CHOICES: DropdownChoice[] = [
 	{ label: 'Off', id: 0 },

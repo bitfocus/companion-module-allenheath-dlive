@@ -2,7 +2,7 @@ import { CompanionActionContext, CompanionActionEvent } from '@companion-module/
 import { camelCase, noop } from 'lodash/fp'
 
 import { UpdateActions } from '../../src/actions.js'
-import { FeedbackHandler } from '../../src/FeedbackHandler.js'
+import { type DLiveParameterPath, FeedbackHandler, pathKey } from '../../src/FeedbackHandler.js'
 import { ModuleInstance } from '../../src/main.js'
 import { MuteToggleAction } from '../../src/validators/index.js'
 import { MockModuleInstance } from '../utils/MockModuleInstance.js'
@@ -62,11 +62,11 @@ describe('muteToggle action', () => {
 		// Setup: Current mute state is false (unmuted)
 		const channelType: ChannelType = 'input'
 		const channelNo = 0
-		const path = 'input:0:mute'
+		const path: DLiveParameterPath = { channelType: 'input', channelNo: 0, parameter: 'mute' }
 
 		// Subscribe to the path and set current value to false (unmuted)
 		feedbackHandler.mapFeedback('test_feedback', path)
-		feedbackHandler['valueCache'][path] = false
+		feedbackHandler['valueCache'][pathKey(path)] = false
 
 		const muteToggleAction: MuteToggleAction = {
 			...baseAction,
@@ -96,11 +96,11 @@ describe('muteToggle action', () => {
 		// Setup: Current mute state is true (muted)
 		const channelType: ChannelType = 'input'
 		const channelNo = 0
-		const path = 'input:0:mute'
+		const path: DLiveParameterPath = { channelType: 'input', channelNo: 0, parameter: 'mute' }
 
 		// Subscribe to the path and set current value to true (muted)
 		feedbackHandler.mapFeedback('test_feedback', path)
-		feedbackHandler['valueCache'][path] = true
+		feedbackHandler['valueCache'][pathKey(path)] = true
 
 		const muteToggleAction: MuteToggleAction = {
 			...baseAction,
@@ -130,10 +130,10 @@ describe('muteToggle action', () => {
 		// Test with mono_group channel
 		const channelType: ChannelType = 'mono_group'
 		const channelNo = 2
-		const path = 'mono_group:2:mute'
+		const path: DLiveParameterPath = { channelType: 'mono_group', channelNo: 2, parameter: 'mute' }
 
 		feedbackHandler.mapFeedback('test_feedback', path)
-		feedbackHandler['valueCache'][path] = false
+		feedbackHandler['valueCache'][pathKey(path)] = false
 
 		const muteToggleAction: MuteToggleAction = {
 			...baseAction,

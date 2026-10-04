@@ -2,7 +2,7 @@ import { CompanionActionContext, CompanionActionEvent } from '@companion-module/
 import { camelCase, noop } from 'lodash/fp'
 
 import { UpdateActions } from '../../src/actions.js'
-import { FeedbackHandler } from '../../src/FeedbackHandler.js'
+import { type DLiveParameterPath, FeedbackHandler, pathKey } from '../../src/FeedbackHandler.js'
 import { ModuleInstance } from '../../src/main.js'
 import { FaderLevelDecrementAction } from '../../src/validators/index.js'
 import { MockModuleInstance } from '../utils/MockModuleInstance.js'
@@ -62,11 +62,11 @@ describe('faderLevelDecrement action', () => {
 		// Setup: Current fader at -10 dB (MIDI value ~89)
 		const channelType: ChannelType = 'input'
 		const channelNo = 0
-		const path = 'input:0:fader'
+		const path: DLiveParameterPath = { channelType: 'input', channelNo: 0, parameter: 'fader' }
 
 		// Subscribe to the path and set current value to -10 dB (MIDI ~89)
 		feedbackHandler.mapFeedback('test_feedback', path)
-		feedbackHandler['valueCache'][path] = 89 // -10 dB ≈ MIDI 89
+		feedbackHandler['valueCache'][pathKey(path)] = 89 // -10 dB ≈ MIDI 89
 
 		// Clear mocks after setup (mapFeedback requests channel name)
 		jest.clearAllMocks()
@@ -98,10 +98,10 @@ describe('faderLevelDecrement action', () => {
 		// so the computed value would round back to the current value and the fader would never move
 		const channelType: ChannelType = 'input'
 		const channelNo = 0
-		const path = 'input:0:fader'
+		const path: DLiveParameterPath = { channelType: 'input', channelNo: 0, parameter: 'fader' }
 
 		feedbackHandler.mapFeedback('test_feedback', path)
-		feedbackHandler['valueCache'][path] = 100
+		feedbackHandler['valueCache'][pathKey(path)] = 100
 
 		jest.clearAllMocks()
 
@@ -129,10 +129,10 @@ describe('faderLevelDecrement action', () => {
 		// Setup: Current fader at 0 dB (MIDI value 107)
 		const channelType: ChannelType = 'input'
 		const channelNo = 0
-		const path = 'input:0:fader'
+		const path: DLiveParameterPath = { channelType: 'input', channelNo: 0, parameter: 'fader' }
 
 		feedbackHandler.mapFeedback('test_feedback', path)
-		feedbackHandler['valueCache'][path] = 107 // 0 dB = MIDI 107
+		feedbackHandler['valueCache'][pathKey(path)] = 107 // 0 dB = MIDI 107
 
 		// Clear mocks after setup (mapFeedback requests channel name)
 		jest.clearAllMocks()
@@ -163,10 +163,10 @@ describe('faderLevelDecrement action', () => {
 		// Setup: Current fader at -52 dB (MIDI value ~4)
 		const channelType: ChannelType = 'input'
 		const channelNo = 0
-		const path = 'input:0:fader'
+		const path: DLiveParameterPath = { channelType: 'input', channelNo: 0, parameter: 'fader' }
 
 		feedbackHandler.mapFeedback('test_feedback', path)
-		feedbackHandler['valueCache'][path] = 4 // ~-52 dB
+		feedbackHandler['valueCache'][pathKey(path)] = 4 // ~-52 dB
 
 		// Clear mocks after setup (mapFeedback requests channel name)
 		jest.clearAllMocks()
