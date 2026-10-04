@@ -6,6 +6,7 @@ import {
 	CHANNEL_TYPES,
 	CUE_LIST_COUNT,
 	DCA_COUNT,
+	DEFAULT_CONNECTION_TARGET,
 	EQ_MAXIMUM_GAIN,
 	EQ_MAXIMUM_WIDTH,
 	EQ_MINIMUM_GAIN,
@@ -406,7 +407,7 @@ const SetMidiTransportActionSchema = CompanionActionEventBaseSchema.extend({
 const DliveModuleConfigSchema = z.object({
 	host: z.string(),
 	midiChannel: z.number().int().min(0).max(11),
-	target: z.enum(['mixrack', 'surface']).default('mixrack'),
+	target: z.enum(['mixrack', 'surface']).default(DEFAULT_CONNECTION_TARGET),
 	useCustomPort: z.boolean().default(false),
 	midiPort: z.number().int().min(MIN_TCP_PORT).max(MAX_TCP_PORT),
 })

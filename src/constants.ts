@@ -6,11 +6,13 @@ import { times } from 'lodash/fp'
 // The TLS ports (51327 MixRack / 51329 Surface) are not supported by this module.
 export const MIXRACK_MIDI_TCP_PORT = 51325
 export const SURFACE_MIDI_TCP_PORT = 51328
-export const DEFAULT_MIDI_TCP_PORT = MIXRACK_MIDI_TCP_PORT
+export const DEFAULT_MIDI_TCP_PORT = SURFACE_MIDI_TCP_PORT
 export const MIN_TCP_PORT = 1
 export const MAX_TCP_PORT = 65535
 export const DEFAULT_MIDI_CHANNEL = 0
-export const DEFAULT_TARGET_IP = '192.168.1.70'
+// Defaults to a surface, so the default IP and port match out of the box (see #5)
+export const DEFAULT_CONNECTION_TARGET: ConnectionTarget = 'surface'
+export const DEFAULT_TARGET_IP = '192.168.1.71'
 
 export const CONNECTION_TARGET_CHOICES: { label: string; id: ConnectionTarget }[] = [
 	{ label: 'MixRack', id: 'mixrack' },

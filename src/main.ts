@@ -13,6 +13,7 @@ import { UpdateActions } from './actions.js'
 import {
 	CONNECTION_TARGET_CHOICES,
 	CUE_LISTS_PER_BANK,
+	DEFAULT_CONNECTION_TARGET,
 	DEFAULT_MIDI_CHANNEL,
 	DEFAULT_MIDI_TCP_PORT,
 	DEFAULT_TARGET_IP,
@@ -642,7 +643,7 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 				width: 6,
 				tooltip:
 					'Some functions are device specific: scene recall is MixRack only; cue list recall and Go/Next/Previous are Surface only',
-				default: 'mixrack',
+				default: DEFAULT_CONNECTION_TARGET,
 				choices: CONNECTION_TARGET_CHOICES,
 			},
 			{
