@@ -365,14 +365,8 @@ function createMuteButtonPreset(config: ChannelTypeConfig): CompanionButtonPrese
 }
 
 /**
- * The first 8 scenes are reserved utility scenes and cannot be recalled
- * (matches the recallScene action's dropdown)
- */
-const FIRST_RECALLABLE_SCENE_INDEX = 8
-
-/**
  * Creates a scene recall preset (MixRack targets only)
- * @param sceneIndex 0-based scene index (8 = scene 9, the first recallable scene)
+ * @param sceneIndex 0-based scene index (0 = scene 1)
  */
 function createSceneRecallPreset(sceneIndex: number): CompanionButtonPresetDefinition {
 	const sceneNum = sceneIndex + 1 // 1-based for display
@@ -513,7 +507,7 @@ export function UpdatePresets(instance: ModuleInstance): void {
 
 	// Scene recall presets (MixRack only)
 	if (target !== 'surface') {
-		for (let sceneIndex = FIRST_RECALLABLE_SCENE_INDEX; sceneIndex < SCENE_COUNT; sceneIndex++) {
+		for (let sceneIndex = 0; sceneIndex < SCENE_COUNT; sceneIndex++) {
 			presets[`scene_recall_${sceneIndex + 1}`] = createSceneRecallPreset(sceneIndex)
 		}
 	}

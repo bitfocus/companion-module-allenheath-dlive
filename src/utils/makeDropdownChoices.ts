@@ -2,13 +2,10 @@ import { DropdownChoice } from '@companion-module/base'
 import { compact, times } from 'lodash/fp'
 
 const DEFAULT_OPTIONS = {
-	startIndex: 0,
 	labelOffset: 0,
 }
 
 interface MakeDropdownChoicesOptions {
-	/** The index to start at */
-	startIndex?: number
 	/** The offset to add to the label */
 	labelOffset?: number
 }
@@ -25,14 +22,7 @@ export const makeDropdownChoices = (
 	labelCount: number,
 	options?: MakeDropdownChoicesOptions,
 ): DropdownChoice[] => {
-	const { startIndex, labelOffset } = { ...DEFAULT_OPTIONS, ...options }
+	const { labelOffset } = { ...DEFAULT_OPTIONS, ...options }
 
-	return compact(
-		times((id: number) => {
-			if (id < startIndex) {
-				return
-			}
-			return { label: `${labelPrefix} ${id + 1 + labelOffset}`, id }
-		})(labelCount),
-	)
+	return compact(times((id: number) => ({ label: `${labelPrefix} ${id + 1 + labelOffset}`, id }))(labelCount))
 }

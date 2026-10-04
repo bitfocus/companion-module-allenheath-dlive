@@ -109,12 +109,11 @@ describe('presets', () => {
 		expect(mutePresetIds).toHaveLength(14)
 	})
 
-	it('creates scene recall presets for the recallable scenes (9-500)', () => {
+	it('creates scene recall presets for every scene (1-500)', () => {
 		const scenePresetIds = Object.keys(moduleInstance.presetDefinitions).filter((id) => id.startsWith('scene_recall_'))
-		expect(scenePresetIds).toHaveLength(SCENE_COUNT - 8)
-		expect(moduleInstance.presetDefinitions.scene_recall_8).toBeUndefined() // Scenes 1-8 are reserved
-		const scene9 = moduleInstance.presetDefinitions.scene_recall_9 as CompanionButtonPresetDefinition
-		expect(scene9.steps[0].down[0].options).toMatchObject({ scene: 8 })
+		expect(scenePresetIds).toHaveLength(SCENE_COUNT)
+		const scene1 = moduleInstance.presetDefinitions.scene_recall_1 as CompanionButtonPresetDefinition
+		expect(scene1.steps[0].down[0].options).toMatchObject({ scene: 0 })
 		expect(moduleInstance.presetDefinitions[`scene_recall_${SCENE_COUNT}`]).toBeDefined()
 	})
 
