@@ -4,4 +4,8 @@ describe('stringToMidiBytes', () => {
 	it('should convert string to MIDI bytes', () => {
 		expect(stringToMidiBytes('foo bar')).toStrictEqual([0x66, 0x6f, 0x6f, 0x20, 0x62, 0x61, 0x72])
 	})
+
+	it('should drop non-printable and non-ASCII characters', () => {
+		expect(stringToMidiBytes('fé\no\x7f')).toStrictEqual([0x66, 0x6f])
+	})
 })

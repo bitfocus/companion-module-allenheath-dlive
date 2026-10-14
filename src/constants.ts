@@ -1,14 +1,23 @@
 import { DropdownChoice } from '@companion-module/base'
 import { times } from 'lodash/fp'
 
-import { midiValueToEqFrequency, midiValueToHpfFrequency } from './utils/index.js'
-
 // Companion config
-export const DEFAULT_MIDI_TCP_PORT = 51328
+// Unencrypted MIDI TCP rendezvous ports from the dLive MIDI over TCP protocol.
+// The TLS ports (51327 MixRack / 51329 Surface) are not supported by this module.
+export const MIXRACK_MIDI_TCP_PORT = 51325
+export const SURFACE_MIDI_TCP_PORT = 51328
+export const DEFAULT_MIDI_TCP_PORT = SURFACE_MIDI_TCP_PORT
 export const MIN_TCP_PORT = 1
 export const MAX_TCP_PORT = 65535
 export const DEFAULT_MIDI_CHANNEL = 0
+// Defaults to a surface, so the default IP and port match out of the box (see #5)
+export const DEFAULT_CONNECTION_TARGET: ConnectionTarget = 'surface'
 export const DEFAULT_TARGET_IP = '192.168.1.71'
+
+export const CONNECTION_TARGET_CHOICES: { label: string; id: ConnectionTarget }[] = [
+	{ label: 'MixRack', id: 'mixrack' },
+	{ label: 'Surface', id: 'surface' },
+]
 
 // dLive constants
 export const INPUT_CHANNEL_COUNT = 128
@@ -29,7 +38,8 @@ export const DCA_COUNT = 24
 export const MUTE_GROUP_COUNT = 8
 
 export const SCENE_COUNT = 500
-export const CUE_LIST_COUNT = 1999
+// The dLive has 2000 user assignable cue recall IDs (0-1999) across 16 banks
+export const CUE_LIST_COUNT = 2000
 export const SCENES_PER_BANK = 128
 export const CUE_LISTS_PER_BANK = 128
 
@@ -198,18 +208,6 @@ export const EQ_TYPE_CHOICES: { label: string; id: EqType }[] = [
 	{ label: 'High Pass', id: 'high_pass' },
 ]
 
-export const EQ_FREQUENCY_CHOICES: { label: string; id: number }[] = times((n) => {
-	const frequency = midiValueToEqFrequency(n)
-	const label = frequency < 1000 ? `${frequency} Hz` : `${(frequency / 1000).toFixed(2)} kHz`
-	return { label, id: n }
-})(128)
-
-export const HPF_FREQUENCY_CHOICES: { label: string; id: number }[] = times((n) => {
-	const frequency = midiValueToHpfFrequency(n)
-	const label = frequency < 1000 ? `${frequency} Hz` : `${(frequency / 1000).toFixed(2)} kHz`
-	return { label, id: n }
-})(128)
-
 export const EQ_PARAMETER_MIDI_VALUES_FOR_BANDS: Record<number, EqMidiParameters> = {
 	0: { type: 0x1a, frequency: 0x1b, width: 0x1c, gain: 0x1d },
 	1: { type: 0x1e, frequency: 0x1f, width: 0x20, gain: 0x21 },
@@ -223,6 +221,16 @@ export const FADER_LEVEL_CHOICES: DropdownChoice[] = times((index: number) => {
 	const levelString = id === 0 ? '-INF' : dbLevel
 	return { label: `${levelString} dB`, id }
 })(FADER_STEP_COUNT)
+
+export const FADER_LEVEL_CONDITIONS: Readonly<FaderLevelCondition[]> = ['eq', 'gte', 'lte', 'gt', 'lt']
+
+export const FADER_LEVEL_CONDITION_CHOICES: { label: string; id: FaderLevelCondition }[] = [
+	{ label: 'Equal to', id: 'eq' },
+	{ label: 'Greater than or equal to', id: 'gte' },
+	{ label: 'Less than or equal to', id: 'lte' },
+	{ label: 'Greater than', id: 'gt' },
+	{ label: 'Less than', id: 'lt' },
+]
 
 // High Pass Filter Control
 export const HPF_CHOICES: DropdownChoice[] = [
@@ -263,6 +271,18 @@ export const UFX_KEY_CHOICES: DropdownChoice[] = [
 export const UFX_SCALE_CHOICES: DropdownChoice[] = [
 	{ label: 'Major', id: 0x00 },
 	{ label: 'Minor', id: 0x01 },
+]
+
+// MIDI Machine Control transport commands (standard MMC command numbers)
+export const MMC_COMMAND_CHOICES: DropdownChoice[] = [
+	{ label: 'Stop', id: 0x01 },
+	{ label: 'Play', id: 0x02 },
+	{ label: 'Deferred Play', id: 0x03 },
+	{ label: 'Fast Forward', id: 0x04 },
+	{ label: 'Rewind', id: 0x05 },
+	{ label: 'Record Strobe (Punch In)', id: 0x06 },
+	{ label: 'Record Exit (Punch Out)', id: 0x07 },
+	{ label: 'Pause', id: 0x09 },
 ]
 
 export const MAIN_MIDI_CHANNEL_CHOICES: DropdownChoice[] = [

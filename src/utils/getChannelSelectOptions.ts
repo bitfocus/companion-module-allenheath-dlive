@@ -1,4 +1,4 @@
-import { SomeCompanionActionInputField } from '@companion-module/base'
+import { CompanionInputFieldDropdown } from '@companion-module/base'
 import { capitalize } from 'lodash'
 import { includes, join } from 'lodash/fp'
 
@@ -35,13 +35,13 @@ interface GetChannelSelectOptionsArgs {
 }
 
 /**
- * Helper to create a set of fields for a Companion action that allow selection of a channel type and number.
+ * Helper to create a set of fields for a Companion action or feedback that allow selection of a channel type and number.
  * These appear in the Companion UI as two dropdowns: one for choosing the channel type, e.g. 'Input' and
  * another for choosing the channel, e.g. 'Input 1'
  * @param args Args as defined in GetChannelSelectOptionsArgs interface
- * @returns Array of Companion action input fields
+ * @returns Array of Companion dropdown input fields
  */
-export const getChannelSelectOptions = (args?: GetChannelSelectOptionsArgs): SomeCompanionActionInputField[] => {
+export const getChannelSelectOptions = (args?: GetChannelSelectOptionsArgs): CompanionInputFieldDropdown[] => {
 	const exclude = args?.exclude ?? []
 	const include = args?.include ?? CHANNEL_TYPE_CHOICES.map((c) => c.id)
 	const prefix = args?.prefix

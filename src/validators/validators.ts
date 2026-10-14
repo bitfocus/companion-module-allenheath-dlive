@@ -1,4 +1,4 @@
-import { CompanionActionEvent } from '@companion-module/base'
+import { CompanionActionEvent, CompanionFeedbackBooleanEvent } from '@companion-module/base'
 import { z } from 'zod'
 
 import {
@@ -6,11 +6,13 @@ import {
 	CHANNEL_TYPES,
 	CUE_LIST_COUNT,
 	DCA_COUNT,
+	DEFAULT_CONNECTION_TARGET,
 	EQ_MAXIMUM_GAIN,
 	EQ_MAXIMUM_WIDTH,
 	EQ_MINIMUM_GAIN,
 	EQ_MINIMUM_WIDTH,
 	EQ_TYPES,
+	FADER_LEVEL_CONDITIONS,
 	FX_RETURN_COUNT,
 	INPUT_CHANNEL_COUNT,
 	MAIN_COUNT,
@@ -59,6 +61,16 @@ const CompanionActionEventBaseSchema = z.object({
 	id: z.string(),
 	controlId: z.string(),
 	actionId: z.string(),
+	options: z.record(z.string(), InputValueSchema.optional()),
+})
+
+/**
+ * Schema representing the CompanionFeedbackBooleanEvent interface, the base for all feedbacks coming from Companion
+ */
+const CompanionFeedbackEventBaseSchema = z.object({
+	id: z.string(),
+	controlId: z.string(),
+	feedbackId: z.string(),
 	options: z.record(z.string(), InputValueSchema.optional()),
 })
 
@@ -177,10 +189,30 @@ const MuteActionSchema = CompanionActionEventBaseSchema.extend({
 	}),
 })
 
+const MuteToggleActionSchema = CompanionActionEventBaseSchema.extend({
+	options: z.object({
+		...channelOptions,
+	}),
+})
+
 const FaderLevelActionSchema = CompanionActionEventBaseSchema.extend({
 	options: z.object({
 		...channelOptions,
 		level: z.number().int().min(0).max(127),
+	}),
+})
+
+const FaderLevelIncrementActionSchema = CompanionActionEventBaseSchema.extend({
+	options: z.object({
+		...channelOptions,
+		increment: z.number().min(0.1).max(3.0),
+	}),
+})
+
+const FaderLevelDecrementActionSchema = CompanionActionEventBaseSchema.extend({
+	options: z.object({
+		...channelOptions,
+		decrement: z.number().min(0.1).max(3.0),
 	}),
 })
 
@@ -372,18 +404,58 @@ const SetUfxUnitParameterActionSchema = CompanionActionEventBaseSchema.extend({
 	}),
 })
 
+const SetMidiTransportActionSchema = CompanionActionEventBaseSchema.extend({
+	options: z.object({
+		transport: z.number().int().min(0x01).max(0x09),
+	}),
+})
+
 /**
- * Schema representing the DLive module configuration
+ * Schemas representing the options for each specific feedback
+ */
+
+const ChannelMutedFeedbackSchema = CompanionFeedbackEventBaseSchema.extend({
+	options: z.object({
+		...channelOptions,
+	}),
+})
+
+const FaderLevelFeedbackSchema = CompanionFeedbackEventBaseSchema.extend({
+	options: z.object({
+		...channelOptions,
+		condition: z.enum(FADER_LEVEL_CONDITIONS),
+		level: z.number().int().min(0).max(127),
+	}),
+})
+
+const MainAssignmentFeedbackSchema = CompanionFeedbackEventBaseSchema.extend({
+	options: z.object({
+		...channelOptions,
+	}),
+})
+
+/**
+ * Schema representing the DLive module configuration.
+ * target and useCustomPort default for configs saved before they existed
+ * (an upgrade script in main.ts maps old configs based on their port).
  */
 const DliveModuleConfigSchema = z.object({
 	host: z.string(),
 	midiChannel: z.number().int().min(0).max(11),
+	target: z.enum(['mixrack', 'surface']).default(DEFAULT_CONNECTION_TARGET),
+	useCustomPort: z.boolean().default(false),
 	midiPort: z.number().int().min(MIN_TCP_PORT).max(MAX_TCP_PORT),
 })
 
 export type MuteAction = z.infer<typeof MuteActionSchema>
 
+export type MuteToggleAction = z.infer<typeof MuteToggleActionSchema>
+
 export type FaderLevelAction = z.infer<typeof FaderLevelActionSchema>
+
+export type FaderLevelIncrementAction = z.infer<typeof FaderLevelIncrementActionSchema>
+
+export type FaderLevelDecrementAction = z.infer<typeof FaderLevelDecrementActionSchema>
 
 export type AssignChannelToMainMixAction = z.infer<typeof AssignChannelToMainMixActionSchema>
 
@@ -423,10 +495,27 @@ export type SetUfxGlobalScaleAction = z.infer<typeof SetUfxGlobalScaleActionSche
 
 export type SetUfxUnitParameterAction = z.infer<typeof SetUfxUnitParameterActionSchema>
 
+export type SetMidiTransportAction = z.infer<typeof SetMidiTransportActionSchema>
+
+export type ChannelMutedFeedback = z.infer<typeof ChannelMutedFeedbackSchema>
+
+export type FaderLevelFeedback = z.infer<typeof FaderLevelFeedbackSchema>
+
+export type MainAssignmentFeedback = z.infer<typeof MainAssignmentFeedbackSchema>
+
 export const parseMuteAction = (action: CompanionActionEvent): MuteAction => MuteActionSchema.parse(action)
+
+export const parseMuteToggleAction = (action: CompanionActionEvent): MuteToggleAction =>
+	MuteToggleActionSchema.parse(action)
 
 export const parseFaderLevelAction = (action: CompanionActionEvent): FaderLevelAction =>
 	FaderLevelActionSchema.parse(action)
+
+export const parseFaderLevelIncrementAction = (action: CompanionActionEvent): FaderLevelIncrementAction =>
+	FaderLevelIncrementActionSchema.parse(action)
+
+export const parseFaderLevelDecrementAction = (action: CompanionActionEvent): FaderLevelDecrementAction =>
+	FaderLevelDecrementActionSchema.parse(action)
 
 export const parseAssignChannelToMainMixAction = (action: CompanionActionEvent): AssignChannelToMainMixAction =>
 	AssignChannelToMainMixActionSchema.parse(action)
@@ -484,6 +573,18 @@ export const parseSetUfxGlobalScaleAction = (action: CompanionActionEvent): SetU
 
 export const parseSetUfxUnitParameterAction = (action: CompanionActionEvent): SetUfxUnitParameterAction =>
 	SetUfxUnitParameterActionSchema.parse(action)
+
+export const parseSetMidiTransportAction = (action: CompanionActionEvent): SetMidiTransportAction =>
+	SetMidiTransportActionSchema.parse(action)
+
+export const parseChannelMutedFeedback = (feedback: CompanionFeedbackBooleanEvent): ChannelMutedFeedback =>
+	ChannelMutedFeedbackSchema.parse(feedback)
+
+export const parseFaderLevelFeedback = (feedback: CompanionFeedbackBooleanEvent): FaderLevelFeedback =>
+	FaderLevelFeedbackSchema.parse(feedback)
+
+export const parseMainAssignmentFeedback = (feedback: CompanionFeedbackBooleanEvent): MainAssignmentFeedback =>
+	MainAssignmentFeedbackSchema.parse(feedback)
 
 export const parseDliveModuleConfig = (config: Record<string, unknown>): DLiveModuleConfig =>
 	DliveModuleConfigSchema.parse(config)
