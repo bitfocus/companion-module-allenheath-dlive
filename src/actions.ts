@@ -651,6 +651,40 @@ export const UpdateActions = (companionModule: ModuleInstance): void => {
 			},
 		},
 
+		actionMidiRecall: {
+			name: 'Action MIDI Recall (Surface Only)',
+			description:
+				'Trigger a surface Action using the MIDI CC message set for it in the console Action MIDI Recall settings',
+			options: [
+				{
+					type: 'number',
+					min: 0,
+					max: 127,
+					label: 'Control Number',
+					id: 'controlNumber',
+					default: 0,
+				},
+				{
+					type: 'number',
+					min: 0,
+					max: 127,
+					label: 'Control Value',
+					id: 'controlValue',
+					default: 0,
+				},
+			],
+			callback: async (action) => {
+				const { options } = validators.parseActionMidiRecallAction(action)
+				companionModule.processCommand({
+					command: 'action_midi_recall',
+					params: {
+						controlNumber: options.controlNumber,
+						controlValue: options.controlValue,
+					},
+				})
+			},
+		},
+
 		parametricEq: {
 			name: 'Parametric EQ',
 			description: 'Set the type, frequency, width and gain of a parametric EQ band',
@@ -1031,7 +1065,7 @@ export const UpdateActions = (companionModule: ModuleInstance): void => {
 	}
 
 	// Some functions are device specific in the dLive MIDI protocol:
-	// scene recall is MixRack only; cue list recall and Go/Next/Previous are Surface only.
+	// scene recall is MixRack only; cue list recall, Go/Next/Previous and Action MIDI Recall are Surface only.
 	// When no config is available yet, all actions are offered.
 	const target = companionModule.config?.target
 	if (target === 'surface') {
@@ -1040,6 +1074,7 @@ export const UpdateActions = (companionModule: ModuleInstance): void => {
 	if (target === 'mixrack') {
 		delete actionDefinitions.recallCueList
 		delete actionDefinitions.goNextPrevious
+		delete actionDefinitions.actionMidiRecall
 	}
 
 	companionModule.setActionDefinitions(actionDefinitions)
