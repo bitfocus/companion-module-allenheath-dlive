@@ -31,20 +31,23 @@ describe('connection target action gating', () => {
 		expect(moduleInstance.actionDefinitions.recallScene).toBeDefined()
 		expect(moduleInstance.actionDefinitions.recallCueList).toBeDefined()
 		expect(moduleInstance.actionDefinitions.goNextPrevious).toBeDefined()
+		expect(moduleInstance.actionDefinitions.actionMidiRecall).toBeDefined()
 	})
 
-	it('offers scene recall but not cue list recall or go/next/previous for a MixRack target', () => {
+	it('offers scene recall but not cue list recall, go/next/previous or action MIDI recall for a MixRack target', () => {
 		const moduleInstance = makeInstance('mixrack')
 		expect(moduleInstance.actionDefinitions.recallScene).toBeDefined()
 		expect(moduleInstance.actionDefinitions.recallCueList).toBeUndefined()
 		expect(moduleInstance.actionDefinitions.goNextPrevious).toBeUndefined()
+		expect(moduleInstance.actionDefinitions.actionMidiRecall).toBeUndefined()
 	})
 
-	it('offers cue list recall and go/next/previous but not scene recall for a Surface target', () => {
+	it('offers cue list recall, go/next/previous and action MIDI recall but not scene recall for a Surface target', () => {
 		const moduleInstance = makeInstance('surface')
 		expect(moduleInstance.actionDefinitions.recallScene).toBeUndefined()
 		expect(moduleInstance.actionDefinitions.recallCueList).toBeDefined()
 		expect(moduleInstance.actionDefinitions.goNextPrevious).toBeDefined()
+		expect(moduleInstance.actionDefinitions.actionMidiRecall).toBeDefined()
 	})
 
 	it('offers the MIDI transport action for both targets', () => {

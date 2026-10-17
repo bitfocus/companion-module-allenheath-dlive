@@ -57,6 +57,7 @@ type DLiveCommand =
 	| DLiveSceneRecallCommand
 	| DLiveCueListRecallCommand
 	| DLiveGoNextPreviousCommand
+	| DLiveActionMidiRecallCommand
 	| DLiveParametricEQCommand
 	| DLiveHPFFrequencyCommand
 	| DLiveSetHPFOnOffCommand
@@ -224,6 +225,14 @@ type DLiveCueListRecallCommand = {
 
 type DLiveGoNextPreviousCommand = {
 	command: 'go_next_previous'
+	params: {
+		controlNumber: number
+		controlValue: number
+	}
+}
+
+type DLiveActionMidiRecallCommand = {
+	command: 'action_midi_recall'
 	params: {
 		controlNumber: number
 		controlValue: number
