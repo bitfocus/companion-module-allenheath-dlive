@@ -121,6 +121,7 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 			return
 		}
 		this.destroyMidiSocket()
+		this.feedbackHandler?.resetConnection()
 
 		const { host } = this.config
 		const midiPort = this.resolvedMidiPort
@@ -128,11 +129,13 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 		this.midiSocket = new TCPHelper(host, midiPort)
 			.on('status_change', (status, message) => {
 				this.updateStatus(status, message)
+				if (status !== InstanceStatus.Ok) this.feedbackHandler?.resetConnection()
 			})
 			.on('error', (err) => {
 				this.log('error', 'MIDI error: ' + err.message)
 			})
 			.on('connect', () => {
+				this.feedbackHandler?.resetConnection()
 				this.log('debug', `MIDI Connected to ${host}`)
 				// Request current values for all subscribed parameters
 				this.feedbackHandler?.requestAllSubscribedValues()
@@ -196,6 +199,19 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 			0xf7,
 		])
 		this.log('debug', `Requested fader level for ${channelType}:${channelNo}`)
+	}
+
+	requestMainAssignment(channelType: ChannelType, channelNo: number): void {
+		const { midiChannelOffset, midiNoteOffset } = getMidiOffsetsForChannelType(channelType)
+		this.sendMidiToDlive([
+			...SYSEX_HEADER,
+			this.baseMidiChannel + midiChannelOffset,
+			0x05,
+			0x0b,
+			0x18,
+			channelNo + midiNoteOffset,
+			0xf7,
+		])
 	}
 
 	/**
