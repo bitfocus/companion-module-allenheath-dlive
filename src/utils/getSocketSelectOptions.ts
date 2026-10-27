@@ -1,4 +1,4 @@
-import { SomeCompanionActionInputField } from '@companion-module/base'
+import { SomeCompanionFeedbackInputField } from '@companion-module/base'
 
 import { MIXRACK_DX_SOCKET_COUNT, MIXRACK_SOCKET_COUNT, SOCKET_TYPE_CHOICES } from '../constants.js'
 import { makeDropdownChoices } from './makeDropdownChoices.js'
@@ -9,7 +9,7 @@ import { makeDropdownChoices } from './makeDropdownChoices.js'
  * 'MixRack Sockets 1-64' and another for choosing the socket, e.g. 'Socket 1'
  * @returns Array of Companion action input fields
  */
-export const getSocketSelectOptions = (): SomeCompanionActionInputField[] => [
+export const getSocketSelectOptions = (): SomeCompanionFeedbackInputField[] => [
 	{
 		type: 'dropdown',
 		label: 'Socket Type',

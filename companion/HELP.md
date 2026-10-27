@@ -27,7 +27,7 @@ The MIDI channels used to control the console. By default this is `1 to 5` but c
 
 ## Actions
 
-This module implements every control action in the Allen & Heath dLive MIDI over TCP/IP protocol V2.0 apart from the "get" actions (e.g. "get fader level"), which may be added in a future release. This can be found [here](https://www.allen-heath.com/content/uploads/2024/06/dLive-MIDI-Over-TCP-Protocol-V2.0.pdf).
+This module provides control actions and explicit Get actions for the Allen & Heath dLive MIDI over TCP/IP protocol V2.0. The specification can be found [here](https://www.allen-heath.com/content/uploads/2024/06/dLive-MIDI-Over-TCP-Protocol-V2.0.pdf).
 
 The following actions are supported:
 |Action|Description|Parameters|
@@ -67,6 +67,7 @@ The **Mute Toggle**, **Fader Level Increment**, and **Fader Level Decrement** ac
 3. **Calculate the new value** based on the current state
 
 **How It Works:**
+
 - On **first press** after connection: The action requests the current value from the console and waits briefly (up to 1 second) for the reply, then performs the action.
 - On **subsequent presses**: The action performs immediately using the cached value.
 - If the console does not reply within the timeout (e.g. the connection is down), the action is skipped and a warning is logged.
@@ -79,11 +80,11 @@ The module provides real-time feedback from the console, allowing button states 
 
 The following feedbacks are supported:
 
-|Feedback|Description|Parameters|
-|---|---|---|
-|Channel Muted|Indicates if a channel is muted (red background when active)|Channel Type, Channel Number|
-|Fader Level|Indicates if a fader meets a specified condition|Channel Type, Channel Number, Condition, Level|
-|Main Mix Assignment|Indicates if a channel is assigned to the main mix (blue background when active)|Channel Type, Channel Number|
+| Feedback            | Description                                                                      | Parameters                                     |
+| ------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------- |
+| Channel Muted       | Indicates if a channel is muted (red background when active)                     | Channel Type, Channel Number                   |
+| Fader Level         | Indicates if a fader meets a specified condition                                 | Channel Type, Channel Number, Condition, Level |
+| Main Mix Assignment | Indicates if a channel is assigned to the main mix (blue background when active) | Channel Type, Channel Number                   |
 
 ### How Feedbacks Work
 
@@ -103,6 +104,7 @@ Variables follow the pattern: `$(this:dlive_channelType_channelNo_parameter)`
 The channel numbers in variable names match the dLive console numbering (1-based).
 
 Examples:
+
 - `$(this:dlive_input_1_mute)` - Mute status of input channel 1 (true/false)
 - `$(this:dlive_input_1_fader)` - Fader level of input channel 1 (displayed in dB, e.g., "+5.0", "-12.3", "-inf")
 - `$(this:dlive_main_1_fader)` - Main mix 1 fader level (displayed in dB)
@@ -123,3 +125,17 @@ Examples:
 - **Console Setup**: Ensure the dLive console is configured to send MIDI feedback messages
 - **Feedback Performance**: Multiple feedbacks for the same parameter share a single subscription for efficiency
 - **Variable Updates**: Variables update in real-time as the console state changes
+
+## Additional protocol actions and feedback
+
+Explicit Get actions cover mute, fader, main assignment, channel name/colour, send levels, input group/aux assignment, socket gain/pad/48V, all PEQ band parameters, and HPF frequency/enable. Configure matching feedback to monitor the reply. Queryable feedback requests the current value automatically on subscription and reconnect.
+
+New feedbacks cover routing pairs, individual DCA/mute-group membership, preamps, processing parameters, and bank-aware current scene/cue. Numeric comparisons explicitly use raw MIDI values. Existing feedback and variable IDs are retained; new readback feedbacks do not create additional variables.
+
+Event-only feedback (assignments without Get, recalls, UFX, generic MIDI CC/note, MMC, and custom messages) is unknown until a matching message is received. Last Received means an observed message, not confirmation of execution or transport state. No undocumented Get commands are sent. Scene recall is MixRack-only and cue recall is Surface-only.
+
+Send Custom MIDI Message accepts space-separated hexadecimal bytes including the status, for example B1 00 7F for a custom MIDI strip mapping. Exact-message feedback matches one framed, normalized MIDI message rather than an entire NRPN sequence.
+
+TLS/authentication remains unsupported. Hardware verification is required to establish which unsolicited messages a console transmits.
+
+See the [protocol coverage matrix](../docs/protocol-support.md) for per-capability actions, feedback and interoperability limits.

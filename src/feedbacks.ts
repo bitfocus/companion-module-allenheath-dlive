@@ -3,6 +3,7 @@ import type { CompanionFeedbackBooleanEvent, CompanionFeedbackDefinitions } from
 import { FADER_LEVEL_CHOICES, FADER_LEVEL_CONDITION_CHOICES } from './constants.js'
 import type { DLiveParameter, DLiveParameterPath } from './FeedbackHandler.js'
 import type { ModuleInstance } from './main.js'
+import { protocolFeedbacks } from './protocolDefinitions.js'
 import { camelCaseStringLiteral, getChannelSelectOptions } from './utils/index.js'
 import * as validators from './validators/index.js'
 
@@ -59,6 +60,7 @@ const validateFeedback = <T>(
  */
 export function UpdateFeedbacks(instance: ModuleInstance): void {
 	const feedbacks: CompanionFeedbackDefinitions = {
+		...protocolFeedbacks(instance),
 		channel_muted: {
 			type: 'boolean',
 			name: 'Channel Muted',

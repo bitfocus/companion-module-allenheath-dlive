@@ -31,6 +31,7 @@ import {
 import { FeedbackHandler } from './FeedbackHandler.js'
 import { UpdateFeedbacks } from './feedbacks.js'
 import { UpdatePresets } from './presets.js'
+import { ProtocolState } from './ProtocolState.js'
 import {
 	eqGainToMidiValue,
 	eqWidthToMidiValue,
@@ -44,6 +45,7 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 	config?: DLiveModuleConfig
 	midiSocket?: TCPHelper
 	feedbackHandler?: FeedbackHandler
+	readonly protocolState = new ProtocolState(this)
 
 	get baseMidiChannel(): number {
 		return this.config?.midiChannel ?? 0
@@ -83,6 +85,7 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 		}
 		// Re-register actions and presets so target-specific ones (scene/cue recall etc.) follow the config
 		UpdateActions(this)
+		UpdateFeedbacks(this)
 		UpdatePresets(this)
 		this.initialiseMidi()
 	}
@@ -122,6 +125,7 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 		}
 		this.destroyMidiSocket()
 		this.feedbackHandler?.resetConnection()
+		this.protocolState.reset()
 
 		const { host } = this.config
 		const midiPort = this.resolvedMidiPort
@@ -129,16 +133,21 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 		this.midiSocket = new TCPHelper(host, midiPort)
 			.on('status_change', (status, message) => {
 				this.updateStatus(status, message)
-				if (status !== InstanceStatus.Ok) this.feedbackHandler?.resetConnection()
+				if (status !== InstanceStatus.Ok) {
+					this.feedbackHandler?.resetConnection()
+					this.protocolState.reset()
+				}
 			})
 			.on('error', (err) => {
 				this.log('error', 'MIDI error: ' + err.message)
 			})
 			.on('connect', () => {
 				this.feedbackHandler?.resetConnection()
+				this.protocolState.reset()
 				this.log('debug', `MIDI Connected to ${host}`)
 				// Request current values for all subscribed parameters
 				this.feedbackHandler?.requestAllSubscribedValues()
+				this.protocolState.refresh()
 			})
 			.on('data', (data) => {
 				this.log('debug', `received MIDI data: ${data.toString('hex')}`)

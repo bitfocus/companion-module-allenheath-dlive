@@ -291,6 +291,7 @@ export class FeedbackHandler {
 		this.module.log('debug', `Processing MIDI feedback: ${data.toString('hex')}`)
 
 		for (const message of this.decoder.push(data)) {
+			this.module.protocolState?.processMessage(message)
 			// Parse and process the complete message
 			const parsed = this.parseMidiMessage(message)
 

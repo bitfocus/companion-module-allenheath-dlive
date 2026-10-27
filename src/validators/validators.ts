@@ -77,7 +77,7 @@ const CompanionFeedbackEventBaseSchema = z.object({
 /**
  * Object representing the options the getChannelSelectOptions function adds to a Companion action
  */
-const channelOptions = {
+export const channelOptions = {
 	channelType: z.enum(CHANNEL_TYPES),
 	input: z
 		.number()
@@ -159,7 +159,7 @@ const channelOptions = {
 /**
  * Object representing the options the getSocketSelectOptions function adds to a Companion action
  */
-const socketOptions = {
+export const socketOptions = {
 	socketType: z.enum(SOCKET_TYPES),
 	mixrackSockets1To64: z
 		.number()
@@ -588,3 +588,23 @@ export const parseMainAssignmentFeedback = (feedback: CompanionFeedbackBooleanEv
 
 export const parseDliveModuleConfig = (config: Record<string, unknown>): DLiveModuleConfig =>
 	DliveModuleConfigSchema.parse(config)
+
+// Validation shared by protocol Get actions and received-value feedback.
+export const ProtocolMidiByteSchema = z.number().int().min(0).max(127)
+export const ProtocolMidiChannelSchema = z.number().int().min(1).max(16)
+export const ProtocolChannelTypeSchema = z.enum(CHANNEL_TYPES)
+export const ProtocolSocketTypeSchema = z.enum(SOCKET_TYPES)
+export const ProtocolPeqParameterSchema = z.number().int().min(0x1a).max(0x29)
+export const ProtocolConditionSchema = z.enum(['eq', 'gte', 'lte'])
+export const ProtocolBooleanSchema = z.boolean()
+export const ProtocolTextSchema = z.string()
+export const ProtocolMidiHexSchema = z
+	.string()
+	.trim()
+	.min(2)
+	.max(3072)
+	.regex(/^[0-9a-fA-F]{2}(?:\s+[0-9a-fA-F]{2})*$/)
+export const parseProtocolMember = (input: unknown, max: number): number =>
+	z.number().int().min(1).max(max).parse(input)
+export const parseProtocolExpectedNumber = (input: unknown, min: number, max: number): number =>
+	z.number().int().min(min).max(max).parse(input)
