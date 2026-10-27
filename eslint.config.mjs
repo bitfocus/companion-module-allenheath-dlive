@@ -19,6 +19,8 @@ export default [
 			'simple-import-sort/imports': 'error',
 			'simple-import-sort/exports': 'error',
 			'@typescript-eslint/no-explicit-any': 'error',
+			// fp.js exists at runtime; its ambient bridge confuses eslint-plugin-n.
+			'n/no-missing-import': ['error', { allowModules: ['lodash'] }],
 		},
 	},
 	{

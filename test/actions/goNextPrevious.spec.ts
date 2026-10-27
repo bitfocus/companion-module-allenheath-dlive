@@ -1,5 +1,4 @@
 import { CompanionActionContext, CompanionActionEvent } from '@companion-module/base'
-import { noop } from 'lodash/fp'
 
 import { UpdateActions } from '../../src/actions.js'
 import { ModuleInstance } from '../../src/main.js'
@@ -11,7 +10,6 @@ jest.mock('@companion-module/base', () => {
 
 	return {
 		...jest.requireActual('@companion-module/base'),
-		runEntrypoint: noop,
 		InstanceBase: MockInstanceBase,
 	}
 })

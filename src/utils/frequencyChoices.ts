@@ -1,6 +1,8 @@
-import { times } from 'lodash/fp'
+import fp from 'lodash/fp.js'
 
 import { midiValueToEqFrequency, midiValueToHpfFrequency } from './midiValueConverters.js'
+
+const { times } = fp
 
 const formatFrequencyLabel = (frequency: number): string =>
 	frequency < 1000 ? `${frequency} Hz` : `${(frequency / 1000).toFixed(2)} kHz`

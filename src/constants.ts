@@ -1,5 +1,7 @@
 import { DropdownChoice } from '@companion-module/base'
-import { times } from 'lodash/fp'
+import fp from 'lodash/fp.js'
+
+const { times } = fp
 
 // Companion config
 // Unencrypted MIDI TCP rendezvous ports from the dLive MIDI over TCP protocol.

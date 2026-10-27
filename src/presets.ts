@@ -1,4 +1,9 @@
-import type { CompanionButtonPresetDefinition, CompanionPresetDefinitions } from '@companion-module/base'
+import type {
+	CompanionPresetDefinitions,
+	CompanionPresetGroup,
+	CompanionPresetSection,
+	CompanionSimplePresetDefinition,
+} from '@companion-module/base'
 
 import {
 	CUE_LIST_COUNT,
@@ -20,6 +25,8 @@ import {
 	STEREO_UFX_SEND_COUNT,
 } from './constants.js'
 import type { ModuleInstance } from './main.js'
+
+type CategorizedPreset = CompanionSimplePresetDefinition & { category: string }
 
 /**
  * Channel type configuration for preset generation
@@ -231,7 +238,7 @@ function createBaseOptions(): Record<string, number> {
  * @param config Channel type configuration
  * @param channelIndex 0-based channel index (0 = channel 1 on the console)
  */
-function createRotaryKnobPreset(config: ChannelTypeConfig, channelIndex: number): CompanionButtonPresetDefinition {
+function createRotaryKnobPreset(config: ChannelTypeConfig, channelIndex: number): CategorizedPreset {
 	const channelNum = channelIndex + 1 // 1-based for display and variable names
 	const channelOptions = {
 		channelType: config.channelType,
@@ -240,7 +247,7 @@ function createRotaryKnobPreset(config: ChannelTypeConfig, channelIndex: number)
 	}
 
 	return {
-		type: 'button',
+		type: 'simple',
 		category: `Rotary Knob - ${config.category}`,
 		name: `${config.displayName} ${channelNum} Rotary Knob`,
 		style: {
@@ -254,9 +261,6 @@ function createRotaryKnobPreset(config: ChannelTypeConfig, channelIndex: number)
 			size: 14,
 			color: config.color,
 			bgcolor: config.bgcolor,
-		},
-		options: {
-			rotaryActions: true,
 		},
 		steps: [
 			{
@@ -315,21 +319,33 @@ function createRotaryKnobPreset(config: ChannelTypeConfig, channelIndex: number)
 /**
  * Creates a simple mute button preset for a specific channel type
  */
-function createMuteButtonPreset(config: ChannelTypeConfig): CompanionButtonPresetDefinition {
-	const baseOptions = createBaseOptions()
+function createMuteButtonPreset(config: ChannelTypeConfig): CategorizedPreset {
+	const channelOptions = {
+		...createBaseOptions(),
+		channelType: config.channelType,
+		[config.optionKey]: { isExpression: true, value: '$(local:channel) - 1' },
+	}
 
 	return {
-		type: 'button',
+		type: 'simple',
 		category: `Mute Buttons - ${config.category}`,
 		name: `${config.displayName} Mute`,
+		localVariables: [
+			{
+				variableType: 'simple',
+				variableName: 'channel',
+				startupValue: 1,
+				headline: `Channel number (1–${config.channelCount}); drives the action, feedback, and label`,
+			},
+		],
 		style: {
-			text: `$(dLive:dlive_${config.variablePrefix}_1_name)\\nMUTE`,
+			text: `$(dLive:dlive_${config.variablePrefix}_$(local:channel)_name)\\nMUTE`,
 			size: 14,
 			color: 0xffffff,
 			bgcolor: 0x333333,
 		},
 		previewStyle: {
-			text: `${config.displayName}\\nMUTE`,
+			text: `${config.displayName} $(local:channel)\\nMUTE`,
 			size: 14,
 			color: 0xffffff,
 			bgcolor: 0x333333,
@@ -339,10 +355,7 @@ function createMuteButtonPreset(config: ChannelTypeConfig): CompanionButtonPrese
 				down: [
 					{
 						actionId: 'muteToggle',
-						options: {
-							channelType: config.channelType,
-							...baseOptions,
-						},
+						options: { ...channelOptions },
 					},
 				],
 				up: [],
@@ -351,10 +364,7 @@ function createMuteButtonPreset(config: ChannelTypeConfig): CompanionButtonPrese
 		feedbacks: [
 			{
 				feedbackId: 'channel_muted',
-				options: {
-					channelType: config.channelType,
-					...baseOptions,
-				},
+				options: { ...channelOptions },
 				style: {
 					bgcolor: 0xff0000,
 					color: 0xffffff,
@@ -368,10 +378,10 @@ function createMuteButtonPreset(config: ChannelTypeConfig): CompanionButtonPrese
  * Creates a scene recall preset (MixRack targets only)
  * @param sceneIndex 0-based scene index (0 = scene 1)
  */
-function createSceneRecallPreset(sceneIndex: number): CompanionButtonPresetDefinition {
+function createSceneRecallPreset(sceneIndex: number): CategorizedPreset {
 	const sceneNum = sceneIndex + 1 // 1-based for display
 	return {
-		type: 'button',
+		type: 'simple',
 		category: 'Scenes',
 		name: `Recall Scene ${sceneNum}`,
 		style: {
@@ -399,9 +409,9 @@ function createSceneRecallPreset(sceneIndex: number): CompanionButtonPresetDefin
  * Creates a cue list recall preset (Surface targets only)
  * @param recallId Recall ID (displayed 0-based, matching the console)
  */
-function createCueRecallPreset(recallId: number): CompanionButtonPresetDefinition {
+function createCueRecallPreset(recallId: number): CategorizedPreset {
 	return {
-		type: 'button',
+		type: 'simple',
 		category: 'Cue Lists',
 		name: `Recall Cue ID ${recallId}`,
 		style: {
@@ -430,9 +440,9 @@ function createCueRecallPreset(recallId: number): CompanionButtonPresetDefinitio
  * The CC number and value must be edited to match the console's
  * Utility / Control / MIDI settings - the console defines them, not the protocol.
  */
-function createGoNextPreviousPreset(name: string, buttonText: string): CompanionButtonPresetDefinition {
+function createGoNextPreviousPreset(name: string, buttonText: string): CategorizedPreset {
 	return {
-		type: 'button',
+		type: 'simple',
 		category: 'Scene Control',
 		name: `${name} (set CC to match console MIDI settings)`,
 		style: {
@@ -459,9 +469,9 @@ function createGoNextPreviousPreset(name: string, buttonText: string): Companion
 /**
  * Creates a MIDI transport (MMC) preset for a transport command
  */
-function createMidiTransportPreset(commandId: number, label: string): CompanionButtonPresetDefinition {
+function createMidiTransportPreset(commandId: number, label: string): CategorizedPreset {
 	return {
-		type: 'button',
+		type: 'simple',
 		category: 'Transport',
 		name: `Transport ${label}`,
 		style: {
@@ -493,7 +503,7 @@ function createMidiTransportPreset(commandId: number, label: string): CompanionB
  * @param instance Module instance
  */
 export function UpdatePresets(instance: ModuleInstance): void {
-	const presets: CompanionPresetDefinitions = {}
+	const presets: Record<string, CategorizedPreset> = {}
 	const target = instance.config?.target
 
 	// Generate a rotary knob preset for every channel of each channel type,
@@ -527,5 +537,32 @@ export function UpdatePresets(instance: ModuleInstance): void {
 		presets[`midi_transport_${choice.id}`] = createMidiTransportPreset(choice.id as number, choice.label)
 	}
 
-	instance.setPresetDefinitions(presets)
+	const grouped = new Map<string, string[]>()
+	const definitions: CompanionPresetDefinitions = {}
+	for (const [id, { category, ...preset }] of Object.entries(presets)) {
+		definitions[id] = preset
+		grouped.set(category, [...(grouped.get(category) ?? []), id])
+	}
+	const structure: CompanionPresetSection[] = Array.from(grouped, ([name, definitions]) => ({
+		id: name.toLowerCase().replace(/[^a-z0-9]+/g, '_'),
+		name,
+		definitions: name.startsWith('Mute Buttons - ')
+			? definitions.map((presetId): CompanionPresetGroup => {
+					const config = CHANNEL_TYPES.find((config) => presetId === `mute_button_${config.channelType}`)
+					if (!config) throw new Error(`No channel configuration for ${presetId}`)
+					return {
+						id: presetId,
+						type: 'template',
+						name: config.displayName,
+						presetId,
+						templateVariableName: 'channel',
+						templateValues: Array.from({ length: config.channelCount }, (_, index) => ({
+							name: `${config.displayName} ${index + 1} Mute`,
+							value: index + 1,
+						})),
+					}
+				})
+			: definitions,
+	}))
+	instance.setPresetDefinitions(structure, definitions)
 }

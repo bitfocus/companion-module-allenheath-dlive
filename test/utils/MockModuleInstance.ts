@@ -1,8 +1,11 @@
 import {
+	CompanionActionDefinition,
 	CompanionActionDefinitions,
+	CompanionFeedbackDefinition,
 	CompanionFeedbackDefinitions,
 	CompanionPresetDefinitions,
-	CompanionVariableDefinition,
+	CompanionPresetSection,
+	CompanionVariableDefinitions,
 	CompanionVariableValues,
 	TCPHelper,
 } from '@companion-module/base'
@@ -10,28 +13,38 @@ import {
 import { ModuleInstance } from '../../src/main.js'
 
 export class MockModuleInstance extends ModuleInstance {
-	actionDefinitions: CompanionActionDefinitions = {}
-	feedbackDefinitions: CompanionFeedbackDefinitions = {}
+	actionDefinitions: Record<string, CompanionActionDefinition | undefined> = {}
+	feedbackDefinitions: Record<string, CompanionFeedbackDefinition | undefined> = {}
 	presetDefinitions: CompanionPresetDefinitions = {}
+	presetStructure: CompanionPresetSection[] = []
 
 	constructor(internal: unknown) {
 		super(internal)
-		this.midiSocket = { send: jest.fn() } as unknown as TCPHelper
+		this.midiSocket = {
+			send: jest.fn().mockReturnValue(true),
+			sendAsync: jest.fn().mockResolvedValue(true),
+			destroy: jest.fn(),
+		} as unknown as TCPHelper
 	}
 
 	setActionDefinitions(actionDefinitions: CompanionActionDefinitions): void {
-		this.actionDefinitions = actionDefinitions
+		this.actionDefinitions = Object.fromEntries(
+			Object.entries(actionDefinitions).map(([id, definition]) => [id, definition || undefined]),
+		)
 	}
 
 	setFeedbackDefinitions(feedbackDefinitions: CompanionFeedbackDefinitions): void {
-		this.feedbackDefinitions = feedbackDefinitions
+		this.feedbackDefinitions = Object.fromEntries(
+			Object.entries(feedbackDefinitions).map(([id, definition]) => [id, definition || undefined]),
+		)
 	}
 
-	setPresetDefinitions(presetDefinitions: CompanionPresetDefinitions): void {
+	setPresetDefinitions(structure: CompanionPresetSection[], presetDefinitions: CompanionPresetDefinitions): void {
+		this.presetStructure = structure
 		this.presetDefinitions = presetDefinitions
 	}
 
-	setVariableDefinitions(_variableDefinitions: CompanionVariableDefinition[]): void {
+	setVariableDefinitions(_variableDefinitions: CompanionVariableDefinitions): void {
 		return
 	}
 

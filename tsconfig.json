@@ -3,6 +3,7 @@
 	"exclude": ["node_modules"],
 	"compilerOptions": {
 		"types": ["node", "jest"],
-		"strict": true
+		"strict": true,
+		"rootDir": "."
 	}
 }

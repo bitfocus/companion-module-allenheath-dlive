@@ -48,15 +48,7 @@ const validateFeedback = <T>(
 	}
 }
 
-/**
- * Updates the feedback definitions for the module
- *
- * Note: Companion only calls a feedback's subscribe callback when the feedback is first
- * created, NOT when its options are edited. Each callback therefore re-registers its
- * mapping via mapFeedback (a no-op when the path is unchanged) so that edits to the
- * channel options re-subscribe to the correct parameter path.
- * @param instance Module instance
- */
+/** Bind subscriptions in callbacks, including after expression-driven channel changes. */
 export function UpdateFeedbacks(instance: ModuleInstance): void {
 	const feedbacks: CompanionFeedbackDefinitions = {
 		channel_muted: {
@@ -79,12 +71,6 @@ export function UpdateFeedbacks(instance: ModuleInstance): void {
 				instance.feedbackHandler?.mapFeedback(feedback.id, path)
 
 				return instance.feedbackHandler?.getValue(path) === true
-			},
-			subscribe: (feedback: CompanionFeedbackBooleanEvent): void => {
-				const parsed = validateFeedback(instance, feedback, validators.parseChannelMutedFeedback)
-				if (parsed) {
-					instance.feedbackHandler?.mapFeedback(feedback.id, getParameterPath(parsed.options, 'mute'))
-				}
 			},
 			unsubscribe: (feedback: CompanionFeedbackBooleanEvent): void => {
 				// Don't pass path - let FeedbackHandler look it up from stored mapping
@@ -148,12 +134,6 @@ export function UpdateFeedbacks(instance: ModuleInstance): void {
 						return value < targetLevel
 				}
 			},
-			subscribe: (feedback: CompanionFeedbackBooleanEvent): void => {
-				const parsed = validateFeedback(instance, feedback, validators.parseFaderLevelFeedback)
-				if (parsed) {
-					instance.feedbackHandler?.mapFeedback(feedback.id, getParameterPath(parsed.options, 'fader'))
-				}
-			},
 			unsubscribe: (feedback: CompanionFeedbackBooleanEvent): void => {
 				// Don't pass path - let FeedbackHandler look it up from stored mapping
 				instance.feedbackHandler?.removeFeedback(feedback.id)
@@ -185,12 +165,6 @@ export function UpdateFeedbacks(instance: ModuleInstance): void {
 
 				// Assignment value >= 0x40 means assigned
 				return typeof value === 'number' && value >= 0x40
-			},
-			subscribe: (feedback: CompanionFeedbackBooleanEvent): void => {
-				const parsed = validateFeedback(instance, feedback, validators.parseMainAssignmentFeedback)
-				if (parsed) {
-					instance.feedbackHandler?.mapFeedback(feedback.id, getParameterPath(parsed.options, 'main_assignment'))
-				}
 			},
 			unsubscribe: (feedback: CompanionFeedbackBooleanEvent): void => {
 				// Don't pass path - let FeedbackHandler look it up from stored mapping

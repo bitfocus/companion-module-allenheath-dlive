@@ -1,5 +1,4 @@
 import type { CompanionBooleanFeedbackDefinition, CompanionFeedbackBooleanEvent } from '@companion-module/base'
-import { noop } from 'lodash/fp'
 
 import { INPUT_CHANNEL_COUNT } from '../src/constants.js'
 import { FeedbackHandler } from '../src/FeedbackHandler.js'
@@ -12,7 +11,6 @@ jest.mock('@companion-module/base', () => {
 
 	return {
 		...jest.requireActual('@companion-module/base'),
-		runEntrypoint: noop,
 		InstanceBase: MockInstanceBase,
 	}
 })
@@ -75,7 +73,7 @@ describe('feedbacks', () => {
 		const definition = getMuteDefinition()
 		const event = makeMuteEvent()
 
-		void definition.subscribe?.(event, {} as never)
+		void definition.callback(event, {} as never)
 		expect(definition.callback(event, {} as never)).toBe(false)
 
 		// Console reports input 1 muted: Note On, note 0x00, velocity 0x7F (+ running status Note Off)
@@ -89,7 +87,7 @@ describe('feedbacks', () => {
 		const definition = getMuteDefinition()
 
 		// Feedback initially created for input 1 (channel index 0)
-		void definition.subscribe?.(makeMuteEvent(), {} as never)
+		void definition.callback(makeMuteEvent(), {} as never)
 
 		// The user edits the feedback to input 128. Companion does NOT call subscribe again
 		// on an options edit - it only re-runs the callback with the new options.
@@ -110,7 +108,7 @@ describe('feedbacks', () => {
 		const definition = getMuteDefinition()
 		const event = makeMuteEvent({ input: INPUT_CHANNEL_COUNT }) // Out of range (0-based)
 
-		void definition.subscribe?.(event, {} as never)
+		void definition.callback(event, {} as never)
 		expect(definition.callback(event, {} as never)).toBe(false)
 
 		expect(logSpy).toHaveBeenCalledWith('error', expect.stringContaining('Invalid channel_muted feedback feedback1'))
@@ -127,7 +125,7 @@ describe('feedbacks', () => {
 			options: { channelType: 'input', ...baseChannelOptions, condition: 'gte', level: 107 },
 		} as unknown as CompanionFeedbackBooleanEvent
 
-		void definition.subscribe?.(event, {} as never)
+		void definition.callback(event, {} as never)
 
 		// Console reports input 1 fader at 0 dB (MIDI 107), then below it (MIDI 100)
 		feedbackHandler.processMidiData(Buffer.from([0xb0, 0x63, 0x00, 0x62, 0x17, 0x06, 0x6b]))

@@ -1,4 +1,6 @@
-import { camelCase } from 'lodash/fp'
+import fp from 'lodash/fp.js'
+
+const { camelCase } = fp
 
 /**
  * Converts a snake_case string literal to camelCase, preserving the literal type

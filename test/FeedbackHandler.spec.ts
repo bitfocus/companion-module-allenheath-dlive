@@ -40,10 +40,10 @@ describe('FeedbackHandler', () => {
 
 			// Should be called once with both parameter and channel name variables
 			expect(mockModule.setVariableDefinitions).toHaveBeenCalledTimes(1)
-			expect(mockModule.setVariableDefinitions).toHaveBeenCalledWith([
-				{ variableId: 'dlive_input_1_mute', name: 'dLive: input:0:mute' },
-				{ variableId: 'dlive_input_1_name', name: 'dLive: input:0:name' },
-			])
+			expect(mockModule.setVariableDefinitions).toHaveBeenCalledWith({
+				dlive_input_1_mute: { name: 'dLive: input:0:mute' },
+				dlive_input_1_name: { name: 'dLive: input:0:name' },
+			})
 		})
 
 		it('should not subscribe twice to the same path', () => {
@@ -84,13 +84,13 @@ describe('FeedbackHandler', () => {
 			expect(mockModule.setVariableDefinitions).toHaveBeenCalledTimes(2)
 
 			// First call should have empty array (removing input:0:mute)
-			expect(mockModule.setVariableDefinitions).toHaveBeenNthCalledWith(1, [])
+			expect(mockModule.setVariableDefinitions).toHaveBeenNthCalledWith(1, {})
 
 			// Second call should have the new variables (adding input:1:mute + input:1:name)
-			expect(mockModule.setVariableDefinitions).toHaveBeenNthCalledWith(2, [
-				{ variableId: 'dlive_input_2_mute', name: 'dLive: input:1:mute' },
-				{ variableId: 'dlive_input_2_name', name: 'dLive: input:1:name' },
-			])
+			expect(mockModule.setVariableDefinitions).toHaveBeenNthCalledWith(2, {
+				dlive_input_2_mute: { name: 'dLive: input:1:mute' },
+				dlive_input_2_name: { name: 'dLive: input:1:name' },
+			})
 		})
 	})
 
@@ -102,7 +102,7 @@ describe('FeedbackHandler', () => {
 			// Should update variables twice (once on subscribe with parameter + channel name, once on unsubscribe)
 			expect(mockModule.setVariableDefinitions).toHaveBeenCalledTimes(2)
 			// Last call should have empty array
-			expect(mockModule.setVariableDefinitions).toHaveBeenLastCalledWith([])
+			expect(mockModule.setVariableDefinitions).toHaveBeenLastCalledWith({})
 		})
 
 		it('should keep subscription if other feedbacks still need it', () => {
@@ -111,10 +111,10 @@ describe('FeedbackHandler', () => {
 			feedbackHandler.removeFeedback('feedback1', input1Mute)
 
 			// Should still have both variables defined
-			expect(mockModule.setVariableDefinitions).toHaveBeenLastCalledWith([
-				{ variableId: 'dlive_input_1_mute', name: 'dLive: input:0:mute' },
-				{ variableId: 'dlive_input_1_name', name: 'dLive: input:0:name' },
-			])
+			expect(mockModule.setVariableDefinitions).toHaveBeenLastCalledWith({
+				dlive_input_1_mute: { name: 'dLive: input:0:mute' },
+				dlive_input_1_name: { name: 'dLive: input:0:name' },
+			})
 		})
 	})
 
@@ -224,10 +224,10 @@ describe('FeedbackHandler', () => {
 
 			// Should have created variable definitions (channel name + parameter)
 			expect(mockModule.setVariableDefinitions).toHaveBeenCalledTimes(1)
-			expect(mockModule.setVariableDefinitions).toHaveBeenCalledWith([
-				{ variableId: 'dlive_input_1_fader', name: 'dLive: input:0:fader' },
-				{ variableId: 'dlive_input_1_name', name: 'dLive: input:0:name' },
-			])
+			expect(mockModule.setVariableDefinitions).toHaveBeenCalledWith({
+				dlive_input_1_fader: { name: 'dLive: input:0:fader' },
+				dlive_input_1_name: { name: 'dLive: input:0:name' },
+			})
 		})
 
 		it('should not create duplicate subscription if already subscribed', () => {
@@ -252,7 +252,7 @@ describe('FeedbackHandler', () => {
 
 			feedbackHandler.clear()
 
-			expect(mockModule.setVariableDefinitions).toHaveBeenLastCalledWith([])
+			expect(mockModule.setVariableDefinitions).toHaveBeenLastCalledWith({})
 			expect(feedbackHandler.getValue(input1Mute)).toBeNull()
 			expect(feedbackHandler.getValue(input2Fader)).toBeNull()
 		})
