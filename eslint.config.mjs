@@ -12,6 +12,11 @@ const baseConfig = await generateEslintConfig({
 export default [
 	...baseConfig,
 	{
+		// Development fixtures consume the build output, not the published package.
+		files: ['scripts/*.mjs'],
+		rules: { 'n/no-unpublished-import': 'off' },
+	},
+	{
 		plugins: {
 			'simple-import-sort': simpleImportSort,
 		},
