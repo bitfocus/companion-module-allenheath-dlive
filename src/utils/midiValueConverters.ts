@@ -97,7 +97,8 @@ export const dbGainToMidiValue = (gain: number, minGain: number, maxGain: number
 export const preampGainToMidiValue = (gain: number): number =>
 	dbGainToMidiValue(gain, PREAMP_MINIMUM_GAIN, PREAMP_MAXIMUM_GAIN)
 
-export const eqGainToMidiValue = (gain: number): number => dbGainToMidiValue(gain, EQ_MINIMUM_GAIN, EQ_MAXIMUM_GAIN)
+export const eqGainToMidiValue = (gain: number): number =>
+	Math.round(((gain - EQ_MINIMUM_GAIN) / (EQ_MAXIMUM_GAIN - EQ_MINIMUM_GAIN)) * 126)
 
 /**
  * Converts a fader MIDI value (0-127) to a dB level

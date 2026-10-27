@@ -1,8 +1,6 @@
 import {
 	EQ_MAXIMUM_FREQUENCY,
-	EQ_MAXIMUM_GAIN,
 	EQ_MINIMUM_FREQUENCY,
-	EQ_MINIMUM_GAIN,
 	HPF_MAXIMUM_FREQUENCY,
 	HPF_MINIMUM_FREQUENCY,
 	PREAMP_MAXIMUM_GAIN,
@@ -27,12 +25,16 @@ describe('preampGainToMidiValue', () => {
 })
 
 describe('eqGainToMidiValue', () => {
-	it('should convert the minimum gain to MIDI 0', () => {
-		expect(eqGainToMidiValue(EQ_MINIMUM_GAIN)).toEqual(0)
-	})
-
-	it('should convert the maximum gain to MIDI 127', () => {
-		expect(eqGainToMidiValue(EQ_MAXIMUM_GAIN)).toEqual(0x7f)
+	it.each([
+		[-15, 0],
+		[-10, 21],
+		[-5, 42],
+		[0, 63],
+		[5, 84],
+		[10, 105],
+		[15, 126],
+	])('converts %s dB to published MIDI value %s', (gain, value) => {
+		expect(eqGainToMidiValue(gain)).toBe(value)
 	})
 })
 
