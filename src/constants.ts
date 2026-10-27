@@ -217,7 +217,7 @@ export const EQ_PARAMETER_MIDI_VALUES_FOR_BANDS: Record<number, EqMidiParameters
 
 export const FADER_LEVEL_CHOICES: DropdownChoice[] = times((index: number) => {
 	const id = FADER_STEP_COUNT - 1 - index
-	const dbLevel = ((id - 107) / 2).toFixed(1)
+	const dbLevel = ((id * 64) / 127 - 54).toFixed(1)
 	const levelString = id === 0 ? '-INF' : dbLevel
 	return { label: `${levelString} dB`, id }
 })(FADER_STEP_COUNT)
