@@ -130,7 +130,7 @@ Examples:
 
 This module uses Companion module API 2.0 and requires Companion 4.3+ and Node 22.20+. Existing action, feedback, variable and preset IDs are retained.
 
-All 14 mute preset channel types provide a local variable named `channel`, starting at 1. Its human-facing number drives the mute action, feedback and name label. Numbered preset templates cover each type's supported range. To retarget a copied button, edit `channel` under Local Variables; update both current and startup values if shown separately. Linked template buttons expose the corresponding preset variable.
+All 14 mute preset channel types provide a local variable named `channel`, starting at 1. Its human-facing number drives the mute action, feedback and name label. Numbered preset templates cover each type's supported range. To retarget a copied button, edit `channel` under Local Variables; update both current and startup values if shown separately. If the button is linked to a preset, choose **Edit** (Convert to Normal Button) to unlink it first, then edit its `channel` under Local Variables. Numbered presets still provide the selected channel as their starting value.
 
 For stereo-linked inputs, enter the first physical input number—for example, **5** for inputs **5–6**. The `channel` variable uses physical input numbering, not a separate stereo-pair index.
 
