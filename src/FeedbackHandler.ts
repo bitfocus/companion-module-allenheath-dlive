@@ -678,6 +678,13 @@ export class FeedbackHandler {
 	private unsubscribeFromParameter(path: DLiveParameterPath): void {
 		// Remove from cache
 		delete this.valueCache[pathKey(path)]
+		// Names are shared by all parameter subscriptions for a channel. Once the last
+		// one goes away, Companion removes the name variable and its value. Forget
+		// the name subscription too so returning to this channel initializes it again.
+		const stillInUse = Object.values(this.subscriptions).some(
+			({ path: other }) => other.channelType === path.channelType && other.channelNo === path.channelNo,
+		)
+		if (!stillInUse) this.channelNameSubscriptions.delete(`${path.channelType}:${path.channelNo}`)
 		this.module.log('debug', `Unsubscribed from parameter: ${pathKey(path)}`)
 	}
 
