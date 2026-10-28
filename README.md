@@ -24,9 +24,9 @@ To make the development module visible in the Companion modules list, set up a d
 
 ## Actions
 
-The module implements every control action in the Allen & Heath dLive MIDI over TCP/IP protocol V2.0 apart from the "get" actions (e.g. "get fader level"), which may be added in a future release. This can be found [here](https://www.allen-heath.com/content/uploads/2024/06/dLive-MIDI-Over-TCP-Protocol-V2.0.pdf) and is also included in the `support` folder of this repository.
+The module provides control actions and explicit Get actions for the Allen & Heath dLive MIDI over TCP/IP protocol V2.0. This can be found [here](https://www.allen-heath.com/content/uploads/2024/06/dLive-MIDI-Over-TCP-Protocol-V2.0.pdf) and is also included in the `support` folder of this repository.
 
-A full list of the actions included in this module can be found in `companion/HELP.md`.
+A full list of the actions included in this module can be found in `companion/HELP.md`. See the [protocol coverage matrix](docs/protocol-support.md) for queryable parameters, received-message feedback and interoperability limits.
 
 The commands in `main.ts` are named based on the corresponding commands in the dLive MIDI specification. This should aid debugging for any engineer with the MIDI spec to hand, as every switch case directly maps to a MIDI command in the spec. It does unfortunately lead to some inconsistencies in naming (for example there are two commands for assigning a channel to the main mix: `channel_assignment_to_main_mix_on`/`channel_assignment_to_main_mix_off` but only one command for enabling/disabling an aux send: `input_to_group_aux_on`), but this is probably an acceptable compromise.
 

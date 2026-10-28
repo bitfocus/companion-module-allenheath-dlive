@@ -22,6 +22,7 @@ import {
 } from './constants.js'
 import { type DLiveParameterPath, pathKey } from './FeedbackHandler.js'
 import { ModuleInstance } from './main.js'
+import { protocolQueryActions } from './protocolDefinitions.js'
 import {
 	camelCaseStringLiteral,
 	dbToFaderMidiValue,
@@ -36,6 +37,7 @@ import * as validators from './validators/index.js'
 
 export const UpdateActions = (companionModule: ModuleInstance): void => {
 	const actionDefinitions: CompanionActionDefinitions = {
+		...protocolQueryActions(companionModule),
 		mute: {
 			name: 'Mute',
 			description: 'Mute or unmute a channel',
