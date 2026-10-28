@@ -335,7 +335,11 @@ function createMuteButtonPreset(config: ChannelTypeConfig): CategorizedPreset {
 				variableType: 'simple',
 				variableName: 'channel',
 				startupValue: 1,
-				headline: `Channel number (1–${config.channelCount}); drives the action, feedback, and label`,
+				headline:
+					`Channel number (1–${config.channelCount}); drives the action, feedback, and label` +
+					(config.channelType === 'input'
+						? '. For stereo-linked inputs, enter the first physical input number—for example, 5 for inputs 5–6.'
+						: ''),
 			},
 		],
 		style: {
