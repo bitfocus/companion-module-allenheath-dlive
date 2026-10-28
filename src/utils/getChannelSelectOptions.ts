@@ -1,6 +1,6 @@
 import { CompanionInputFieldDropdown } from '@companion-module/base'
-import { capitalize } from 'lodash'
-import { includes, join } from 'lodash/fp'
+import lodash from 'lodash'
+import fp from 'lodash/fp.js'
 
 import {
 	CHANNEL_TYPE_CHOICES,
@@ -21,6 +21,8 @@ import {
 	STEREO_UFX_SEND_COUNT,
 } from '../constants.js'
 import { makeDropdownChoices } from './makeDropdownChoices.js'
+
+const { includes, join } = fp
 
 export const prependPrefix = (text: string, prefix?: string): string =>
 	prefix ? prefix + text.charAt(0).toUpperCase() + text.slice(1) : text
@@ -46,7 +48,7 @@ export const getChannelSelectOptions = (args?: GetChannelSelectOptionsArgs): Com
 	const include = args?.include ?? CHANNEL_TYPE_CHOICES.map((c) => c.id)
 	const prefix = args?.prefix
 
-	const channelTypeLabel = prefix ? join(' ', [capitalize(prefix), 'Channel Type']) : 'Channel Type'
+	const channelTypeLabel = prefix ? join(' ', [lodash.capitalize(prefix), 'Channel Type']) : 'Channel Type'
 	const filteredChannelTypeChoices = CHANNEL_TYPE_CHOICES.filter(
 		(c) => includes(c.id, include) && !includes(c.id, exclude),
 	)
@@ -56,6 +58,7 @@ export const getChannelSelectOptions = (args?: GetChannelSelectOptionsArgs): Com
 			type: 'dropdown',
 			label: channelTypeLabel,
 			id: prependPrefix('channelType', prefix),
+			disableAutoExpression: true,
 			default: filteredChannelTypeChoices[0].id,
 			choices: filteredChannelTypeChoices,
 			minChoicesForSearch: 0,

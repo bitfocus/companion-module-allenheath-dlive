@@ -1,4 +1,4 @@
-import type { CompanionVariableDefinition } from '@companion-module/base'
+import type { CompanionVariableDefinitions } from '@companion-module/base'
 
 import type { ModuleInstance } from './main.js'
 import { faderMidiValueToDb } from './utils/index.js'
@@ -873,6 +873,13 @@ export class FeedbackHandler {
 	private unsubscribeFromParameter(path: DLiveParameterPath): void {
 		// Remove from cache
 		delete this.valueCache[pathKey(path)]
+		// Names are shared by all parameter subscriptions for a channel. Once the last
+		// one goes away, Companion removes the name variable and its value. Forget
+		// the name subscription too so returning to this channel initializes it again.
+		const stillInUse = Object.values(this.subscriptions).some(
+			({ path: other }) => other.channelType === path.channelType && other.channelNo === path.channelNo,
+		)
+		if (!stillInUse) this.channelNameSubscriptions.delete(`${path.channelType}:${path.channelNo}`)
 		this.module.log('debug', `Unsubscribed from parameter: ${pathKey(path)}`)
 	}
 
@@ -945,21 +952,18 @@ export class FeedbackHandler {
 	 */
 	private updateChannelNameVariables(): void {
 		// First, build parameter variables and track which channels are in use
-		const parameterVariables: CompanionVariableDefinition[] = []
+		const parameterVariables: CompanionVariableDefinitions = {}
 		const channelsInUse = new Set<string>()
 
 		for (const [key, { path }] of Object.entries(this.subscriptions)) {
-			parameterVariables.push({
-				variableId: this.toVariableId(path),
-				name: `dLive: ${key}`,
-			})
+			parameterVariables[this.toVariableId(path)] = { name: `dLive: ${key}` }
 
 			// Track which channel this parameter belongs to
 			channelsInUse.add(`${path.channelType}:${path.channelNo}`)
 		}
 
 		// Only include channel names for channels that have active parameter subscriptions
-		const channelNameVariables: CompanionVariableDefinition[] = []
+		const channelNameVariables: CompanionVariableDefinitions = {}
 		for (const channelKey of this.channelNameSubscriptions) {
 			if (channelsInUse.has(channelKey)) {
 				const parts = channelKey.split(':')
@@ -968,15 +972,12 @@ export class FeedbackHandler {
 					const channelNo = parseInt(parts[1], 10)
 					// Use 1-based channel numbering for variable name
 					const variableId = `dlive_${channelType}_${channelNo + 1}_name`
-					channelNameVariables.push({
-						variableId,
-						name: `dLive: ${channelType}:${channelNo}:name`,
-					})
+					channelNameVariables[variableId] = { name: `dLive: ${channelType}:${channelNo}:name` }
 				}
 			}
 		}
 
-		this.module.setVariableDefinitions([...parameterVariables, ...channelNameVariables])
+		this.module.setVariableDefinitions({ ...parameterVariables, ...channelNameVariables })
 	}
 
 	/**

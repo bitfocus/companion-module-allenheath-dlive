@@ -1,5 +1,4 @@
-import type { CompanionButtonPresetDefinition } from '@companion-module/base'
-import { noop } from 'lodash/fp'
+import type { CompanionSimplePresetDefinition } from '@companion-module/base'
 
 import {
 	CUE_LIST_COUNT,
@@ -28,7 +27,6 @@ jest.mock('@companion-module/base', () => {
 
 	return {
 		...jest.requireActual('@companion-module/base'),
-		runEntrypoint: noop,
 		InstanceBase: MockInstanceBase,
 	}
 })
@@ -63,7 +61,7 @@ describe('presets', () => {
 	})
 
 	it('creates a rotary knob preset for a specific channel (input 15)', () => {
-		const preset = moduleInstance.presetDefinitions.rotary_knob_input_15 as CompanionButtonPresetDefinition
+		const preset = moduleInstance.presetDefinitions.rotary_knob_input_15 as CompanionSimplePresetDefinition
 		expect(preset).toBeDefined()
 		expect(preset.name).toBe('Input 15 Rotary Knob')
 
@@ -85,14 +83,14 @@ describe('presets', () => {
 	})
 
 	it('creates rotary knob presets for the stereo UFX sends and returns', () => {
-		const sendPreset = moduleInstance.presetDefinitions.rotary_knob_stereo_ufx_send_8 as CompanionButtonPresetDefinition
+		const sendPreset = moduleInstance.presetDefinitions.rotary_knob_stereo_ufx_send_8 as CompanionSimplePresetDefinition
 		expect(sendPreset).toBeDefined()
 		expect(sendPreset.name).toBe('Stereo UFX Send 8 Rotary Knob')
 		expect(sendPreset.steps[0].down[0].options).toMatchObject({ channelType: 'stereo_ufx_send', stereoUfxSend: 7 })
 		expect(sendPreset.style.text).toContain('dlive_stereo_ufx_send_8_name')
 
 		const returnPreset = moduleInstance.presetDefinitions
-			.rotary_knob_stereo_ufx_return_1 as CompanionButtonPresetDefinition
+			.rotary_knob_stereo_ufx_return_1 as CompanionSimplePresetDefinition
 		expect(returnPreset).toBeDefined()
 		expect(returnPreset.steps[0].down[0].options).toMatchObject({
 			channelType: 'stereo_ufx_return',
@@ -112,7 +110,7 @@ describe('presets', () => {
 	it('creates scene recall presets for every scene (1-500)', () => {
 		const scenePresetIds = Object.keys(moduleInstance.presetDefinitions).filter((id) => id.startsWith('scene_recall_'))
 		expect(scenePresetIds).toHaveLength(SCENE_COUNT)
-		const scene1 = moduleInstance.presetDefinitions.scene_recall_1 as CompanionButtonPresetDefinition
+		const scene1 = moduleInstance.presetDefinitions.scene_recall_1 as CompanionSimplePresetDefinition
 		expect(scene1.steps[0].down[0].options).toMatchObject({ scene: 0 })
 		expect(moduleInstance.presetDefinitions[`scene_recall_${SCENE_COUNT}`]).toBeDefined()
 	})
@@ -120,7 +118,7 @@ describe('presets', () => {
 	it('creates cue recall presets for every recall ID', () => {
 		const cuePresetIds = Object.keys(moduleInstance.presetDefinitions).filter((id) => id.startsWith('cue_recall_'))
 		expect(cuePresetIds).toHaveLength(CUE_LIST_COUNT)
-		const cue0 = moduleInstance.presetDefinitions.cue_recall_0 as CompanionButtonPresetDefinition
+		const cue0 = moduleInstance.presetDefinitions.cue_recall_0 as CompanionSimplePresetDefinition
 		expect(cue0.steps[0].down[0].options).toMatchObject({ recallId: 0 })
 	})
 
@@ -131,7 +129,7 @@ describe('presets', () => {
 
 		const transportIds = Object.keys(moduleInstance.presetDefinitions).filter((id) => id.startsWith('midi_transport_'))
 		expect(transportIds).toHaveLength(8)
-		const play = moduleInstance.presetDefinitions.midi_transport_2 as CompanionButtonPresetDefinition
+		const play = moduleInstance.presetDefinitions.midi_transport_2 as CompanionSimplePresetDefinition
 		expect(play.steps[0].down[0].options).toMatchObject({ transport: 2 })
 	})
 

@@ -1,5 +1,5 @@
 import { CompanionActionDefinitions } from '@companion-module/base'
-import { includes } from 'lodash/fp'
+import fp from 'lodash/fp.js'
 
 import {
 	CHANNEL_COLOUR_CHOICES,
@@ -33,6 +33,8 @@ import {
 	makeDropdownChoices,
 } from './utils/index.js'
 import * as validators from './validators/index.js'
+
+const { includes } = fp
 
 export const UpdateActions = (companionModule: ModuleInstance): void => {
 	const actionDefinitions: CompanionActionDefinitions = {
@@ -662,6 +664,7 @@ export const UpdateActions = (companionModule: ModuleInstance): void => {
 					type: 'dropdown',
 					label: 'Band',
 					id: 'band',
+					disableAutoExpression: true,
 					default: 0,
 					choices: makeDropdownChoices('Band', 4),
 					minChoicesForSearch: 0,
@@ -670,6 +673,7 @@ export const UpdateActions = (companionModule: ModuleInstance): void => {
 					type: 'dropdown',
 					label: 'Type',
 					id: 'band0Type',
+					disableAutoExpression: true,
 					default: 'bell',
 					choices: EQ_TYPE_CHOICES.filter((choice) => !includes(choice.id, ['hf_shelf', 'low_pass'])),
 					minChoicesForSearch: 0,
@@ -679,6 +683,7 @@ export const UpdateActions = (companionModule: ModuleInstance): void => {
 					type: 'dropdown',
 					label: 'Type',
 					id: 'band3Type',
+					disableAutoExpression: true,
 					default: 'bell',
 					choices: EQ_TYPE_CHOICES.filter((choice) => !includes(choice.id, ['lf_shelf', 'high_pass'])),
 					minChoicesForSearch: 0,

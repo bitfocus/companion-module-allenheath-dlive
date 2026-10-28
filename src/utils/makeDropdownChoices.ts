@@ -1,5 +1,7 @@
 import { DropdownChoice } from '@companion-module/base'
-import { compact, times } from 'lodash/fp'
+import fp from 'lodash/fp.js'
+
+const { compact, times } = fp
 
 const DEFAULT_OPTIONS = {
 	labelOffset: 0,

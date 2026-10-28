@@ -67,6 +67,7 @@ The **Mute Toggle**, **Fader Level Increment**, and **Fader Level Decrement** ac
 3. **Calculate the new value** based on the current state
 
 **How It Works:**
+
 - On **first press** after connection: The action requests the current value from the console and waits briefly (up to 1 second) for the reply, then performs the action.
 - On **subsequent presses**: The action performs immediately using the cached value.
 - If the console does not reply within the timeout (e.g. the connection is down), the action is skipped and a warning is logged.
@@ -79,11 +80,11 @@ The module provides real-time feedback from the console, allowing button states 
 
 The following feedbacks are supported:
 
-|Feedback|Description|Parameters|
-|---|---|---|
-|Channel Muted|Indicates if a channel is muted (red background when active)|Channel Type, Channel Number|
-|Fader Level|Indicates if a fader meets a specified condition|Channel Type, Channel Number, Condition, Level|
-|Main Mix Assignment|Indicates if a channel is assigned to the main mix (blue background when active)|Channel Type, Channel Number|
+| Feedback            | Description                                                                      | Parameters                                     |
+| ------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------- |
+| Channel Muted       | Indicates if a channel is muted (red background when active)                     | Channel Type, Channel Number                   |
+| Fader Level         | Indicates if a fader meets a specified condition                                 | Channel Type, Channel Number, Condition, Level |
+| Main Mix Assignment | Indicates if a channel is assigned to the main mix (blue background when active) | Channel Type, Channel Number                   |
 
 ### How Feedbacks Work
 
@@ -103,6 +104,7 @@ Variables follow the pattern: `$(this:dlive_channelType_channelNo_parameter)`
 The channel numbers in variable names match the dLive console numbering (1-based).
 
 Examples:
+
 - `$(this:dlive_input_1_mute)` - Mute status of input channel 1 (true/false)
 - `$(this:dlive_input_1_fader)` - Fader level of input channel 1 (displayed in dB, e.g., "+5.0", "-12.3", "-inf")
 - `$(this:dlive_main_1_fader)` - Main mix 1 fader level (displayed in dB)
@@ -123,3 +125,13 @@ Examples:
 - **Console Setup**: Ensure the dLive console is configured to send MIDI feedback messages
 - **Feedback Performance**: Multiple feedbacks for the same parameter share a single subscription for efficiency
 - **Variable Updates**: Variables update in real-time as the console state changes
+
+## Single-variable mute presets (Companion 4.3+)
+
+This module uses Companion module API 2.0 and requires Companion 4.3+ and Node 22.20+. Existing action, feedback, variable and preset IDs are retained.
+
+All 14 mute preset channel types provide a local variable named `channel`, starting at 1. Its human-facing number drives the mute action, feedback and name label. Numbered preset templates cover each type's supported range. To retarget a copied button, edit `channel` under Local Variables; update both current and startup values if shown separately. If the button is linked to a preset, choose **Edit** (Convert to Normal Button) to unlink it first, then edit its `channel` under Local Variables. Numbered presets still provide the selected channel as their starting value.
+
+For stereo-linked inputs, enter the first physical input number—for example, **5** for inputs **5–6**. The `channel` variable uses physical input numbering, not a separate stereo-pair index.
+
+Existing placed buttons retain their options. Place a fresh mute preset to adopt this workflow. Other preset families remain available through API 2 preset sections.

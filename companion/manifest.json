@@ -17,10 +17,11 @@
 	"runtime": {
 		"type": "node22",
 		"api": "nodejs-ipc",
-		"apiVersion": "1.4.0",
+		"apiVersion": "2.0.0",
 		"entrypoint": "../dist/main.js"
 	},
 	"manufacturer": "Allen & Heath",
 	"products": ["dLive"],
-	"keywords": ["Audio", "Sound"]
+	"keywords": ["Audio", "Sound"],
+	"type": "connection"
 }

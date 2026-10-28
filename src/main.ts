@@ -2,12 +2,13 @@ import {
 	CompanionStaticUpgradeScript,
 	InstanceBase,
 	InstanceStatus,
+	type InstanceTypes,
+	type JsonValue,
 	Regex,
-	runEntrypoint,
 	SomeCompanionConfigField,
 	TCPHelper,
 } from '@companion-module/base'
-import { indexOf } from 'lodash/fp'
+import fp from 'lodash/fp.js'
 
 import { UpdateActions } from './actions.js'
 import {
@@ -40,7 +41,13 @@ import {
 } from './utils/index.js'
 import { parseDliveModuleConfig } from './validators/index.js'
 
-export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
+const { indexOf } = fp
+
+interface DLiveInstanceTypes extends InstanceTypes {
+	config: DLiveModuleConfig
+}
+
+export class ModuleInstance extends InstanceBase<DLiveInstanceTypes> {
 	config?: DLiveModuleConfig
 	midiSocket?: TCPHelper
 	feedbackHandler?: FeedbackHandler
@@ -154,7 +161,7 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 			return
 		}
 		this.log('debug', `Sending MIDI: ${midiMessage}`)
-		this.midiSocket.send(Buffer.from(midiMessage)).catch((error: Error) => {
+		this.midiSocket.sendAsync(Buffer.from(midiMessage)).catch((error: Error) => {
 			this.log('error', `Error sending MIDI: ${error.message}`)
 		})
 	}
@@ -671,7 +678,7 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 				default: DEFAULT_MIDI_TCP_PORT,
 				min: MIN_TCP_PORT,
 				max: MAX_TCP_PORT,
-				isVisible: (options) => options.useCustomPort === true,
+				isVisibleExpression: `$(options:useCustomPort) == true`,
 			},
 			{
 				type: 'dropdown',
@@ -690,7 +697,7 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
  * Infers the target from the previously configured port and preserves non-standard ports,
  * so existing connections keep working unchanged.
  */
-const addConnectionTargetUpgrade: CompanionStaticUpgradeScript<Record<string, unknown>> = (_context, props) => {
+const addConnectionTargetUpgrade: CompanionStaticUpgradeScript<Record<string, JsonValue>> = (_context, props) => {
 	const config = props.config
 
 	if (!config || config.target !== undefined) {
@@ -698,7 +705,7 @@ const addConnectionTargetUpgrade: CompanionStaticUpgradeScript<Record<string, un
 	}
 
 	const midiPort = config.midiPort as number | undefined
-	const updatedConfig: Record<string, unknown> = {
+	const updatedConfig: Record<string, JsonValue> = {
 		...config,
 		target: midiPort === SURFACE_MIDI_TCP_PORT || midiPort === 51329 ? 'surface' : 'mixrack',
 		useCustomPort: midiPort !== undefined && midiPort !== MIXRACK_MIDI_TCP_PORT && midiPort !== SURFACE_MIDI_TCP_PORT,
@@ -707,4 +714,5 @@ const addConnectionTargetUpgrade: CompanionStaticUpgradeScript<Record<string, un
 	return { updatedConfig, updatedActions: [], updatedFeedbacks: [] }
 }
 
-runEntrypoint(ModuleInstance, [addConnectionTargetUpgrade])
+export const UpgradeScripts = [addConnectionTargetUpgrade]
+export default ModuleInstance

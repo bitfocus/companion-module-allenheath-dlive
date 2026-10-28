@@ -8,6 +8,7 @@ describe('getChannelSelectOptions', () => {
 				type: 'dropdown',
 				label: 'Socket Type',
 				id: 'socketType',
+				disableAutoExpression: true,
 				default: 'mixrack_sockets_1_to_64',
 				choices: SOCKET_TYPE_CHOICES,
 				minChoicesForSearch: 0,
