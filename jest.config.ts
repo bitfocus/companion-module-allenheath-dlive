@@ -1,7 +1,7 @@
 import { createDefaultPreset } from 'ts-jest'
 
 /** @type {require("ts-jest").JestConfigWithTsJest} */
-module.exports = {
+export default {
 	preset: 'ts-jest',
 	testEnvironment: 'node',
 	modulePathIgnorePatterns: ['<rootDir>/dist/'],

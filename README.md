@@ -48,3 +48,7 @@ Each action should have a corresponding test in the `test` folder, and unit test
 ## Thanks
 
 Thanks to Andrew Broughton, Jeffrey Davidsz and anyone else who contributed to the original dLive/iLive companion module. The work served as a great starting point.
+
+## Local development
+
+See [local development and testing](docs/local-development.md) for installation, Companion setup, Director checks and the TCP fixture. After installing dependencies, `npm run check` runs the build, tests and lint; `npm run simulate` starts the fixture without requiring a global Yarn command.
