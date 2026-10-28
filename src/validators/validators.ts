@@ -604,6 +604,10 @@ export const ProtocolMidiHexSchema = z
 	.min(2)
 	.max(3072)
 	.regex(/^[0-9a-fA-F]{2}(?:\s+[0-9a-fA-F]{2})*$/)
+export const ProtocolMidiFeedbackHexSchema = ProtocolMidiHexSchema.refine((value) => {
+	const status = parseInt(value.slice(0, 2), 16)
+	return (status >= 0x80 && status <= 0xef) || status === 0xf0
+}, 'Custom MIDI feedback supports channel voice and SysEx messages only')
 export const parseProtocolMember = (input: unknown, max: number): number =>
 	z.number().int().min(1).max(max).parse(input)
 export const parseProtocolExpectedNumber = (input: unknown, min: number, max: number): number =>

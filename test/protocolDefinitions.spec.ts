@@ -162,6 +162,44 @@ describe('public protocol query actions and feedback', () => {
 		)
 		expect(send).toHaveBeenCalledWith([0xb1, 0, 127])
 	})
+
+	it.each(['90 01 7F', 'B1 0C 55', 'C1 05', 'D1 40', 'E1 00 40', 'F0 7F 7F 06 02 F7'])(
+		'matches a supported custom feedback message %s',
+		(message) => {
+			const instance = setup()
+			const definition = instance.feedbackDefinitions.protocol_customMidi
+			if (!definition || definition.type !== 'boolean') throw new Error('Missing custom MIDI feedback')
+			const event = feedbackEvent({ expected: message }, 'protocol_customMidi')
+			expect(definition.callback(event, feedbackContext)).toBe(false)
+			instance.feedbackHandler?.processMidiData(Buffer.from(parseMidiHex(message)))
+			expect(definition.callback(event, feedbackContext)).toBe(true)
+		},
+	)
+	it.each(['F1 01', 'F2 00 01', 'F3 01', 'F6', 'F8', 'FF'])(
+		'rejects an unobservable custom feedback expectation %s',
+		(message) => {
+			const instance = setup()
+			const log = jest.spyOn(instance, 'log')
+			const definition = instance.feedbackDefinitions.protocol_customMidi
+			if (!definition || definition.type !== 'boolean') throw new Error('Missing custom MIDI feedback')
+			instance.feedbackHandler?.processMidiData(Buffer.from([0x90, 1, 127]))
+			const event = feedbackEvent({ expected: message }, 'protocol_customMidi')
+			expect(definition.callback(event, feedbackContext)).toBe(false)
+			expect(log).toHaveBeenCalledWith('error', expect.stringContaining('channel voice and SysEx messages only'))
+		},
+	)
+	it.each(['F1 01', 'F2 00 01', 'F3 01', 'F6', 'F8', 'FF'])(
+		'preserves custom action support for sending %s',
+		async (message) => {
+			const instance = setup()
+			const send = jest.spyOn(instance, 'sendMidiToDlive')
+			await instance.actionDefinitions.customMidi?.callback?.(
+				{ surfaceId: undefined, id: 'a', controlId: 'b', actionId: 'customMidi', options: { message } },
+				context,
+			)
+			expect(send).toHaveBeenCalledWith(parseMidiHex(message))
+		},
+	)
 	it.each(['', 'B1 zz 7F', '0xB1 00 7F', '00 7F', 'B1 0 7F'])('rejects invalid MIDI hex %j', (value) => {
 		expect(() => parseMidiHex(value)).toThrow()
 	})

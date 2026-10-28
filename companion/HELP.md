@@ -134,7 +134,7 @@ New feedbacks cover routing pairs, individual DCA/mute-group membership, preamps
 
 Event-only feedback (assignments without Get, recalls, UFX, generic MIDI CC/note, MMC, and custom messages) is unknown until a matching message is received. Last Received means an observed message, not confirmation of execution or transport state. No undocumented Get commands are sent. Scene recall is MixRack-only and cue recall is Surface-only.
 
-Send Custom MIDI Message accepts space-separated hexadecimal bytes including the status, for example B1 00 7F for a custom MIDI strip mapping. Exact-message feedback matches one framed, normalized MIDI message rather than an entire NRPN sequence.
+Send Custom MIDI Message accepts space-separated hexadecimal bytes including the status, for example B1 00 7F for a custom MIDI strip mapping. Exact-message feedback matches one framed, normalized channel voice or SysEx message rather than an entire NRPN sequence. System Common and realtime messages are not observed by feedback, and unsupported expected statuses are rejected; the custom Send action can still transmit them.
 
 TLS/authentication remains unsupported. Hardware verification is required to establish which unsolicited messages a console transmits.
 

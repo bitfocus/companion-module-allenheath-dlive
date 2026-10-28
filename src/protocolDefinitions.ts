@@ -22,6 +22,7 @@ import {
 	ProtocolConditionSchema,
 	ProtocolMidiByteSchema,
 	ProtocolMidiChannelSchema,
+	ProtocolMidiFeedbackHexSchema,
 	ProtocolMidiHexSchema,
 	ProtocolPeqParameterSchema,
 	ProtocolSocketTypeSchema,
@@ -283,16 +284,19 @@ export function protocolFeedbacks(instance: ModuleInstance): CompanionFeedbackDe
 				? {
 						type: 'textinput' as const,
 						id: 'expected',
-						label: 'Expected Text (hex bytes for Custom MIDI)',
-						default: '',
+						label: d.id === 'customMidi' ? 'Expected MIDI Message (channel voice or SysEx)' : 'Expected Text',
+						default: d.id === 'customMidi' ? 'B1 00 7F' : '',
 					}
 				: numberField('expected', 'Expected Value', d.max ?? 127, d.min ?? 0)
 		feedbacks[`protocol_${d.id}`] = {
 			type: 'boolean',
 			name: d.name,
-			description: d.query
-				? 'Queries the console on subscription and reconnect. Unknown values do not match.'
-				: 'Observes received messages only; no query is defined. Unknown values do not match.',
+			description:
+				d.id === 'customMidi'
+					? 'Matches one received channel voice or SysEx message. System Common and realtime messages are not observed.'
+					: d.query
+						? 'Queries the console on subscription and reconnect. Unknown values do not match.'
+						: 'Observes received messages only; no query is defined. Unknown values do not match.',
 			defaultStyle: { bgcolor: 0x008000, color: 0xffffff },
 			options: [
 				...d.options,
@@ -312,6 +316,8 @@ export function protocolFeedbacks(instance: ModuleInstance): CompanionFeedbackDe
 			},
 			callback: (feedback) => {
 				try {
+					const customMessage =
+						d.id === 'customMidi' ? ProtocolMidiFeedbackHexSchema.parse(feedback.options.expected) : undefined
 					const path = d.path(feedback.options)
 					instance.protocolState.subscribe(feedback.id, path, () => d.path(feedback.options))
 					const value = instance.protocolState.get(path)
@@ -322,7 +328,7 @@ export function protocolFeedbacks(instance: ModuleInstance): CompanionFeedbackDe
 							ProtocolBooleanSchema.parse(feedback.options.expected)
 						)
 					if (d.text) {
-						const text = ProtocolTextSchema.parse(feedback.options.expected)
+						const text = customMessage ?? ProtocolTextSchema.parse(feedback.options.expected)
 						return value === (d.id === 'customMidi' ? Buffer.from(parseMidiHex(text)).toString('hex') : text)
 					}
 					const target = parseProtocolExpectedNumber(feedback.options.expected, d.min ?? 0, d.max ?? 127)
