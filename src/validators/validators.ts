@@ -333,6 +333,13 @@ const GoNextPreviousActionSchema = CompanionActionEventBaseSchema.extend({
 	}),
 })
 
+const ActionMidiRecallActionSchema = CompanionActionEventBaseSchema.extend({
+	options: z.object({
+		controlNumber: z.number().int().min(0).max(127),
+		controlValue: z.number().int().min(0).max(127),
+	}),
+})
+
 const ParametricEqActionSchema = CompanionActionEventBaseSchema.extend({
 	options: z.object({
 		...channelOptions,
@@ -483,6 +490,8 @@ export type RecallCueListAction = z.infer<typeof RecallCueListActionSchema>
 
 export type GoNextPreviousAction = z.infer<typeof GoNextPreviousActionSchema>
 
+export type ActionMidiRecallAction = z.infer<typeof ActionMidiRecallActionSchema>
+
 export type ParametricEqAction = z.infer<typeof ParametricEqActionSchema>
 
 export type HpfFrequencyAction = z.infer<typeof HpfFrequencyActionSchema>
@@ -555,6 +564,9 @@ export const parseRecallCueListAction = (action: CompanionActionEvent): RecallCu
 
 export const parseGoNextPreviousAction = (action: CompanionActionEvent): GoNextPreviousAction =>
 	GoNextPreviousActionSchema.parse(action)
+
+export const parseActionMidiRecallAction = (action: CompanionActionEvent): ActionMidiRecallAction =>
+	ActionMidiRecallActionSchema.parse(action)
 
 export const parseParametricEqAction = (action: CompanionActionEvent): ParametricEqAction =>
 	ParametricEqActionSchema.parse(action)

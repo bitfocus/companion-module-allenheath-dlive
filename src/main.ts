@@ -503,7 +503,8 @@ export class ModuleInstance extends InstanceBase<DLiveModuleConfig> {
 					break
 				}
 
-				case 'go_next_previous': {
+				case 'go_next_previous':
+				case 'action_midi_recall': {
 					const { controlNumber, controlValue } = params
 					this.sendMidiToDlive([0xb0 + this.baseMidiChannel, controlNumber, controlValue])
 					break

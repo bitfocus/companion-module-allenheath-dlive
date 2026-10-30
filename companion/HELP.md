@@ -9,7 +9,7 @@ The connection accepts the following parameters:
 Whether to connect to the MixRack or the Surface. Some functions are device specific in the dLive MIDI protocol:
 
 - **MixRack only**: Recall Scene
-- **Surface only**: Recall Cue List, Go Next/Previous
+- **Surface only**: Recall Cue List, Go Next/Previous, Action MIDI Recall
 
 Actions that don't apply to the selected device are hidden from the actions list.
 
@@ -50,6 +50,7 @@ The following actions are supported:
 |Recall Scene (MixRack only)|Recall a scene|Scene Number|
 |Recall Cue List (Surface only)|Recall a cue list|Recall ID|
 |Go Next/Previous (Surface only)|Trigger the Go/Next/Previous action using the MIDI CC messages defined in the console settings|Control Number, Control Value|
+|Action MIDI Recall (Surface only)|Trigger a surface Action (e.g. PAFL, Toggle Tuner) using the MIDI CC message set for it in the console Action MIDI Recall settings|Control Number, Control Value|
 |Parametric EQ|Set the type, frequency, width and gain of a parametric EQ band|Channel Type, Channel Number, Band, Type, Frequency, Width, Gain|
 |HPF Frequency|Set the high pass filter frequency of an input channel|Input Channel, Frequency|
 |Set HPF On/Off|Enable or disable the high pass filter of an input channel|Input Channel, HPF|
