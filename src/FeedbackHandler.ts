@@ -1,13 +1,9 @@
 import type { CompanionVariableDefinition } from '@companion-module/base'
 
 import type { ModuleInstance } from './main.js'
+import { MidiStreamDecoder } from './MidiStreamDecoder.js'
+import { getChannelInfoFromMidi } from './utils/getChannelInfoFromMidi.js'
 import { faderMidiValueToDb } from './utils/index.js'
-
-/**
- * Maximum bytes to buffer while waiting for a complete MIDI message.
- * Prevents unbounded growth if a message terminator never arrives (e.g. a corrupt SysEx)
- */
-const MAX_MIDI_BUFFER_SIZE = 1024
 
 /**
  * Supported value types that can be received from the dLive console
@@ -103,12 +99,7 @@ export class FeedbackHandler {
 	 * Buffer for accumulating MIDI messages that may be split across TCP packets
 	 * or use MIDI running status
 	 */
-	private midiBuffer: Buffer = Buffer.alloc(0)
-
-	/**
-	 * Last MIDI status byte for running status support
-	 */
-	private lastStatusByte: number = 0
+	private readonly decoder = new MidiStreamDecoder()
 
 	/**
 	 * Listens for value changes on dLive console and notifies
@@ -299,27 +290,7 @@ export class FeedbackHandler {
 	processMidiData(data: Buffer): void {
 		this.module.log('debug', `Processing MIDI feedback: ${data.toString('hex')}`)
 
-		// Append new data to buffer
-		this.midiBuffer = Buffer.concat([this.midiBuffer, data])
-
-		// Process complete messages from buffer
-		while (this.midiBuffer.length > 0) {
-			const result = this.extractMidiMessage(this.midiBuffer)
-			if (!result) {
-				// Not enough data for a complete message, wait for more
-				if (this.midiBuffer.length > MAX_MIDI_BUFFER_SIZE) {
-					this.module.log('warn', `Discarding ${this.midiBuffer.length} buffered MIDI bytes with no complete message`)
-					this.midiBuffer = Buffer.alloc(0)
-					this.lastStatusByte = 0
-				}
-				break
-			}
-
-			const { message, bytesConsumed } = result
-
-			// Remove consumed bytes from buffer
-			this.midiBuffer = this.midiBuffer.subarray(bytesConsumed)
-
+		for (const message of this.decoder.push(data)) {
 			// Parse and process the complete message
 			const parsed = this.parseMidiMessage(message)
 
@@ -356,118 +327,6 @@ export class FeedbackHandler {
 			if (parsed.value !== undefined) {
 				this.notifyFeedbacks(path, parsed.value)
 			}
-		}
-	}
-
-	/**
-	 * Extracts one complete MIDI message from the buffer, handling running status
-	 * @param buffer Buffer containing MIDI data
-	 * @returns Object with complete message and bytes consumed, or null if incomplete
-	 */
-	private extractMidiMessage(buffer: Buffer): { message: Buffer; bytesConsumed: number } | null {
-		if (buffer.length === 0) {
-			return null
-		}
-
-		const firstByte = buffer[0]
-
-		// Check if first byte is a status byte (bit 7 = 1)
-		const isStatusByte = (firstByte & 0x80) !== 0
-
-		let statusByte: number
-		let dataStart: number
-
-		if (isStatusByte) {
-			// New status byte
-			statusByte = firstByte
-			this.lastStatusByte = statusByte
-			dataStart = 1
-		} else {
-			// Running status - use last status byte
-			if (this.lastStatusByte === 0) {
-				// No previous status, skip this byte
-				this.module.log('debug', `Skipping data byte with no previous status: ${firstByte.toString(16)}`)
-				return { message: Buffer.alloc(0), bytesConsumed: 1 }
-			}
-			statusByte = this.lastStatusByte
-			dataStart = 0
-		}
-
-		const messageType = statusByte & 0xf0
-
-		// Determine expected message length based on message type
-		let expectedLength: number
-
-		if (messageType === 0xf0) {
-			// SysEx - find F7 terminator
-			const endIndex = buffer.indexOf(0xf7, dataStart)
-			if (endIndex === -1) {
-				// Incomplete SysEx, wait for more data
-				return null
-			}
-			expectedLength = endIndex + 1 - dataStart
-		} else if (messageType === 0xc0 || messageType === 0xd0) {
-			// Program Change or Channel Pressure - 1 data byte
-			expectedLength = 1
-		} else if (
-			messageType === 0x80 ||
-			messageType === 0x90 ||
-			messageType === 0xa0 ||
-			messageType === 0xb0 ||
-			messageType === 0xe0
-		) {
-			// Note Off, Note On, Aftertouch, Control Change, Pitch Bend - 2 data bytes
-			expectedLength = 2
-
-			// Special handling for NRPN messages (Control Change with specific pattern)
-			if (messageType === 0xb0 && buffer.length >= dataStart + 1) {
-				const controlNum = buffer[dataStart]
-				if (controlNum === 0x63) {
-					// NRPN message: B0 63 CH 62 nn 06 vv (7 bytes total including running status)
-					// We need at least 6 data bytes for complete NRPN
-					expectedLength = 6
-				}
-			}
-
-			// Special handling for Note On messages followed by Note Off (mute control)
-			// dLive sends: 9N CH VV [9N] CH 00 (Note On + Note Off pair)
-			// Check if this is a Note On message followed by running status Note Off
-			if (messageType === 0x90 && buffer.length >= dataStart + 4) {
-				// Check if bytes after this message look like: CH 00 (running status Note Off)
-				const nextByte1 = buffer[dataStart + 2]
-				const nextByte2 = buffer[dataStart + 3]
-				// If next bytes are data bytes (< 0x80) and second is 0x00, it's likely the Note Off pair
-				if ((nextByte1 & 0x80) === 0 && nextByte2 === 0x00) {
-					// Include the Note Off pair in this message (total 4 data bytes)
-					expectedLength = 4
-				}
-			}
-		} else {
-			// Unknown message type
-			this.module.log('debug', `Unknown message type: ${messageType.toString(16)}`)
-			return { message: Buffer.alloc(0), bytesConsumed: 1 }
-		}
-
-		// Check if we have enough data
-		if (buffer.length < dataStart + expectedLength) {
-			// Incomplete message, wait for more data
-			return null
-		}
-
-		// Extract the complete message
-		let message: Buffer
-		if (isStatusByte) {
-			// Include status byte in message
-			message = buffer.subarray(0, dataStart + expectedLength)
-		} else {
-			// Prepend status byte for running status
-			const dataBytes = buffer.subarray(dataStart, dataStart + expectedLength)
-			message = Buffer.concat([Buffer.from([statusByte]), dataBytes])
-		}
-
-		return {
-			message,
-			bytesConsumed: dataStart + expectedLength,
 		}
 	}
 
@@ -565,10 +424,16 @@ export class FeedbackHandler {
 		const statusByte = data[0]
 		const messageType = statusByte & 0xf0
 		const midiChannel = statusByte & 0x0f
+		if (
+			statusByte < 0xf0 &&
+			(midiChannel < this.module.baseMidiChannel || midiChannel > this.module.baseMidiChannel + 4)
+		) {
+			return { type: 'unknown', raw: data }
+		}
 
-		// Note On/Off (0x90/0x80) - Used for mute status
+		// Only Note On establishes mute status. Explicit Note Off is ignored.
 		// dLive sends: 9N CH VV 9N CH 00 (Note On with velocity, followed by Note Off)
-		if (messageType === 0x90 || messageType === 0x80) {
+		if (messageType === 0x90) {
 			if (data.length < 3) {
 				return { type: 'unknown', raw: data }
 			}
@@ -582,6 +447,7 @@ export class FeedbackHandler {
 			}
 
 			const channelInfo = this.getChannelInfoFromMidi(midiChannel, note)
+			if (!channelInfo) return { type: 'unknown', raw: data }
 
 			return {
 				type: 'note',
@@ -612,6 +478,7 @@ export class FeedbackHandler {
 				const value = data[6]
 
 				const channelInfo = this.getChannelInfoFromMidi(midiChannel, channel)
+				if (!channelInfo) return { type: 'unknown', raw: data }
 
 				let paramName: ParsedMidiMessage['parameter'] = 'unknown'
 				if (parameter === 0x17) {
@@ -680,6 +547,7 @@ export class FeedbackHandler {
 					.trim()
 
 				const channelInfo = this.getChannelInfoFromMidi(midiChannelOffset, channelNumber)
+				if (!channelInfo) return { type: 'unknown', raw: data }
 
 				return {
 					type: 'sysex',
@@ -710,72 +578,8 @@ export class FeedbackHandler {
 	private getChannelInfoFromMidi(
 		midiChannel: number,
 		noteOrChannel: number,
-	): { channelType: ChannelType; channelNo: number } {
-		const baseMidiChannel = this.module.baseMidiChannel
-		const offset = midiChannel - baseMidiChannel
-
-		// Map MIDI channel offsets to channel types based on dLive spec
-		// Stereo channel types use note ranges within the same MIDI channel offset
-		switch (offset) {
-			case 0:
-				// Inputs 1-128: Note 0x00-0x7F
-				return { channelType: 'input', channelNo: noteOrChannel }
-			case 1:
-				// Mono Groups 1-62: Note 0x00-0x3D
-				// Stereo Groups 1-31: Note 0x40-0x5E
-				if (noteOrChannel >= 0x40) {
-					return { channelType: 'stereo_group', channelNo: noteOrChannel - 0x40 }
-				}
-				return { channelType: 'mono_group', channelNo: noteOrChannel }
-			case 2:
-				// Mono Aux 1-62: Note 0x00-0x3D
-				// Stereo Aux 1-31: Note 0x40-0x5E
-				if (noteOrChannel >= 0x40) {
-					return { channelType: 'stereo_aux', channelNo: noteOrChannel - 0x40 }
-				}
-				return { channelType: 'mono_aux', channelNo: noteOrChannel }
-			case 3:
-				// Mono Matrix 1-62: Note 0x00-0x3D
-				// Stereo Matrix 1-31: Note 0x40-0x5E
-				if (noteOrChannel >= 0x40) {
-					return { channelType: 'stereo_matrix', channelNo: noteOrChannel - 0x40 }
-				}
-				return { channelType: 'mono_matrix', channelNo: noteOrChannel }
-			case 4:
-				// Mono FX Send 1-16: Note 0x00-0x0F
-				// Stereo FX Send 1-16: Note 0x10-0x1F
-				// FX Return 1-16: Note 0x20-0x2F
-				// Mains 1-6: Note 0x30-0x35
-				// DCA 1-24: Note 0x36-0x4D
-				// Mute Group 1-8: Note 0x4E-0x55
-				// Stereo UFX Send 1-8: Note 0x56-0x5D
-				// Stereo UFX Return 1-8: Note 0x5E-0x65
-				if (noteOrChannel >= 0x5e && noteOrChannel <= 0x65) {
-					return { channelType: 'stereo_ufx_return', channelNo: noteOrChannel - 0x5e }
-				}
-				if (noteOrChannel >= 0x56 && noteOrChannel <= 0x5d) {
-					return { channelType: 'stereo_ufx_send', channelNo: noteOrChannel - 0x56 }
-				}
-				if (noteOrChannel >= 0x4e && noteOrChannel <= 0x55) {
-					return { channelType: 'mute_group', channelNo: noteOrChannel - 0x4e }
-				}
-				if (noteOrChannel >= 0x36 && noteOrChannel <= 0x4d) {
-					return { channelType: 'dca', channelNo: noteOrChannel - 0x36 }
-				}
-				if (noteOrChannel >= 0x30 && noteOrChannel <= 0x35) {
-					return { channelType: 'main', channelNo: noteOrChannel - 0x30 }
-				}
-				if (noteOrChannel >= 0x20 && noteOrChannel <= 0x2f) {
-					return { channelType: 'fx_return', channelNo: noteOrChannel - 0x20 }
-				}
-				if (noteOrChannel >= 0x10 && noteOrChannel <= 0x1f) {
-					return { channelType: 'stereo_fx_send', channelNo: noteOrChannel - 0x10 }
-				}
-				return { channelType: 'mono_fx_send', channelNo: noteOrChannel }
-			default:
-				// Default to input
-				return { channelType: 'input', channelNo: noteOrChannel }
-		}
+	): { channelType: ChannelType; channelNo: number } | undefined {
+		return getChannelInfoFromMidi(this.module.baseMidiChannel, midiChannel, noteOrChannel)
 	}
 
 	/**
@@ -841,8 +645,9 @@ export class FeedbackHandler {
 			case 'fader':
 				this.module.requestFaderLevel(channelType, channelNo)
 				break
-			// main_assignment doesn't have a specific get command in dLive MIDI spec
-			// It will be updated when the value changes
+			case 'main_assignment':
+				this.module.requestMainAssignment(channelType, channelNo)
+				break
 			default:
 				this.module.log('debug', `No get command available for parameter: ${parameter}`)
 		}
@@ -873,6 +678,13 @@ export class FeedbackHandler {
 	private unsubscribeFromParameter(path: DLiveParameterPath): void {
 		// Remove from cache
 		delete this.valueCache[pathKey(path)]
+		// Names are shared by all parameter subscriptions for a channel. Once the last
+		// one goes away, Companion removes the name variable and its value. Forget
+		// the name subscription too so returning to this channel initializes it again.
+		const stillInUse = Object.values(this.subscriptions).some(
+			({ path: other }) => other.channelType === path.channelType && other.channelNo === path.channelNo,
+		)
+		if (!stillInUse) this.channelNameSubscriptions.delete(`${path.channelType}:${path.channelNo}`)
 		this.module.log('debug', `Unsubscribed from parameter: ${pathKey(path)}`)
 	}
 
@@ -998,6 +810,16 @@ export class FeedbackHandler {
 		return `dlive_${path.channelType}_${path.channelNo + 1}_${path.parameter}`
 	}
 
+	resetConnection(): void {
+		this.decoder.reset()
+		for (const key of Object.keys(this.valueCache)) delete this.valueCache[key]
+		for (const key of Array.from(this.valueWaiters.keys())) this.resolveWaiters(key, null)
+		this.module.setVariableValues(
+			Object.fromEntries(Object.values(this.subscriptions).map(({ path }) => [this.toVariableId(path), ''])),
+		)
+		this.module.checkFeedbacksById(...Object.keys(this.feedbackMap))
+	}
+
 	/**
 	 * Clears all subscriptions and cached values
 	 */
@@ -1018,8 +840,7 @@ export class FeedbackHandler {
 		// Clear channel name subscriptions
 		this.channelNameSubscriptions.clear()
 		// Clear MIDI buffers
-		this.midiBuffer = Buffer.alloc(0)
-		this.lastStatusByte = 0
+		this.decoder.reset()
 		this.updateVariables()
 	}
 }
